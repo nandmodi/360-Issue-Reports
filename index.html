@@ -238,15 +238,23 @@ function loadCSV(url) {
       if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
       return res.text();
     })
-    .then(csvText => new Promise((resolve, reject) => {
-      Papa.parse(csvText, {
-        header: true,
-        skipEmptyLines: true,
-        complete: results => resolve(results.data),
-        error: err => reject(err)
+    .then(csvText => {
+      console.log("CSV fetched from:", url);
+      console.log("CSV preview:", csvText.slice(0, 500)); // show sample
+      return new Promise((resolve, reject) => {
+        Papa.parse(csvText, {
+          header: true,
+          skipEmptyLines: true,
+          complete: results => {
+            console.log("Parsed data sample:", results.data.slice(0, 3));
+            resolve(results.data);
+          },
+          error: err => reject(err)
+        });
       });
-    }));
+    });
 }
+
 
 
 function populateFilters(data) {
