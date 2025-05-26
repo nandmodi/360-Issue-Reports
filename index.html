@@ -329,12 +329,12 @@ function sortTable(header) {
   const descending = header.classList.toggle('desc');
 
   rows.sort((a, b) => {
-    const getValue = (row) => {
+    const getPercentage = (row) => {
       const text = row.children[index].textContent;
-      const match = text.match(/\((\d+)\)/);
-      return match ? parseInt(match[1]) : 0;
+      const match = text.match(/([\d.]+)%/); // Extract percentage
+      return match ? parseFloat(match[1]) : 0;
     };
-    return descending ? getValue(b) - getValue(a) : getValue(a) - getValue(b);
+    return descending ? getPercentage(b) - getPercentage(a) : getPercentage(a) - getPercentage(b);
   });
 
   tbody.innerHTML = '';
@@ -344,6 +344,7 @@ function sortTable(header) {
     if (th !== header) th.classList.remove('desc');
   });
 }
+
 
 function exportTableToCSV(filename) {
   const rows = Array.from(document.querySelectorAll("#spinTable tr")).map(tr =>
