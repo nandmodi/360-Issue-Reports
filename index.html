@@ -212,24 +212,42 @@ const TOTAL_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRmnvwYx4
 let globalData = [], pieChart, barChart;
 
 async function loadAndRender() {
-  const [qcData, totalData] = await Promise.all([loadCSV(QC_CSV_URL), loadCSV(TOTAL_CSV_URL)]);
-  globalData = qcData;
-  document.getElementById('markedSpin').textContent = new Set(qcData.map(r => r['Spin_id'])).size;
-  document.getElementById('receivedSpin').textContent = new Set(totalData.map(r => r['Spin_id'])).size;
-  populateFilters(qcData);
-  applyFilters();
-  addTableSorting();
+  try {
+    const [qcData, totalData] = await Promise.all([
+      loadCSV(QC_CSV_URL),
+      loadCSV(TOTAL_CSV_URL)
+    ]);
+    
+    globalData = qcData;
+
+    document.getElementById('markedSpin').textContent = new Set(qcData.map(r => r['Spin_id'])).size;
+    document.getElementById('receivedSpin').textContent = new Set(totalData.map(r => r['Spin_id'])).size;
+
+    populateFilters(qcData);
+    applyFilters();
+    addTableSorting();
+  } catch (error) {
+    console.error("🚨 Error loading data:", error);
+    alert("Failed to load data. Please check your internet or data source.");
+  }
 }
 
 function loadCSV(url) {
-  return fetch(url).then(res => res.text()).then(text => new Promise(resolve => {
-    Papa.parse(text, {
-      header: true,
-      skipEmptyLines: true,
-      complete: results => resolve(results.data)
-    });
-  }));
+  return fetch(url)
+    .then(res => {
+      if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
+      return res.text();
+    })
+    .then(csvText => new Promise((resolve, reject) => {
+      Papa.parse(csvText, {
+        header: true,
+        skipEmptyLines: true,
+        complete: results => resolve(results.data),
+        error: err => reject(err)
+      });
+    }));
 }
+
 
 function populateFilters(data) {
   const config = {
