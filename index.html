@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<link rel="icon" href="https://spyne-prod-ai.s3.us-east-1.amazonaws.com/ai-dataset/2025/favicon.ico" type="image/x-icon" />
+  <link rel="icon" href="https://spyne-prod-ai.s3.us-east-1.amazonaws.com/ai-dataset/2025/favicon.ico" type="image/x-icon" />
   <meta charset="UTF-8" />
   <title>360 Issue Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -9,21 +9,15 @@
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      background-color: #f8f9fa;
-    }
+    body { font-family: Arial, sans-serif; margin: 0; background-color: #f8f9fa; }
     .header-bar {
-      position: fixed; top: 0; left: 0; right: 0;
-      background: #fff; padding: 10px 0;
+      position: fixed; top: 0; left: 0; right: 0; background: #fff; padding: 10px 0;
       text-align: center; font-weight: bold; font-size: 22px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.05); z-index: 10000;
     }
     .filters {
-      position: fixed; top: 50px; left: 0; right: 0;
-      background: #f8f9fa; z-index: 9999;
-      padding: 10px 20px; display: flex; flex-wrap: wrap;
+      position: fixed; top: 50px; left: 0; right: 0; background: #f8f9fa;
+      z-index: 9999; padding: 10px 20px; display: flex; flex-wrap: wrap;
       gap: 10px; justify-content: center; border-bottom: 1px solid #ccc;
     }
     .filters select {
@@ -31,8 +25,7 @@
       border-radius: 4px; border: 1px solid #ccc;
     }
     .summary-bar {
-      position: fixed; top: 110px; left: 0; right: 0;
-      background: #e2e6ea; z-index: 9998;
+      position: fixed; top: 110px; left: 0; right: 0; background: #e2e6ea; z-index: 9998;
       padding: 10px 20px; display: flex; justify-content: space-between;
       font-weight: bold; border-top: 1px solid #ccc; border-bottom: 2px solid #ccc;
     }
@@ -65,12 +58,12 @@
 <body>
   <div class="header-bar">360 Issue Dashboard</div>
   <div class="filters">
-    <select id="monthFilter"><option value="">Month</option></select>
-    <select id="severityFilter"><option value="">Severity</option></select>
-    <select id="issueFilter"><option value="">Issue</option></select>
-    <select id="enterpriseFilter"><option value="">Enterprise</option></select>
-    <select id="productTypeFilter"><option value="">Product Type</option></select>
-    <select id="qcFilter"><option value="">QC</option></select>
+    <select id="monthFilter" data-label="Month"><option value="">Month</option></select>
+    <select id="severityFilter" data-label="Severity"><option value="">Severity</option></select>
+    <select id="issueFilter" data-label="Issue"><option value="">Issue</option></select>
+    <select id="enterpriseFilter" data-label="Enterprise"><option value="">Enterprise</option></select>
+    <select id="productTypeFilter" data-label="Product Type"><option value="">Product Type</option></select>
+    <select id="qcFilter" data-label="QC"><option value="">QC</option></select>
     <button onclick="resetFilters()" style="margin-left: 10px; padding: 5px 10px;">Reset</button>
   </div>
   <div class="summary-bar">
@@ -132,9 +125,9 @@
       </div>
     </div>
   </div>
-
 <script>
 let globalData = [];
+let totalDataGlobal = [];
 
 async function loadAndRender() {
   const [qcData, totalData] = await Promise.all([
@@ -142,9 +135,7 @@ async function loadAndRender() {
     loadCSV('https://docs.google.com/spreadsheets/d/1EiI4vOQ4Fcq80YaOxosEqFZ49sftVBH-jbp4xARqfWM/gviz/tq?tqx=out:csv&sheet=All-Data')
   ]);
   globalData = qcData;
-  document.getElementById('markedSpin').textContent = new Set(qcData.map(r => r['Spin_id'])).size;
-  document.getElementById('receivedSpin').textContent = new Set(totalData.map(r => r['Spin_id'])).size;
-  populateFilters(qcData);
+  totalDataGlobal = totalData;
   applyFilters();
 }
 
@@ -162,26 +153,18 @@ function loadCSV(url) {
 
 function populateFilters(data) {
   const config = {
-    monthFilter: 'Month',
-    severityFilter: 'Severity',
-    issueFilter: 'Issue',
-    enterpriseFilter: 'Enterprise',
-    productTypeFilter: 'Product_Type',
-    qcFilter: 'QC'
+    monthFilter: 'Month', severityFilter: 'Severity', issueFilter: 'Issue',
+    enterpriseFilter: 'Enterprise', productTypeFilter: 'Product_Type', qcFilter: 'QC'
   };
-  Object.entries(config).forEach(([filterId, key]) => {
-    const select = document.getElementById(filterId);
+  Object.entries(config).forEach(([id, key]) => {
+    const select = document.getElementById(id);
+    const selectedValue = select.value;
+    const defaultText = select.getAttribute('data-label') || key;
     const options = [...new Set(data.map(d => d[key] || '').filter(Boolean))];
-    const defaultText = select.options[0].text;
-    select.innerHTML = `<option value="">${defaultText}</option>` + options.map(v => `<option value="${v}">${v}</option>`).join('');
+    select.innerHTML = `<option value="">${defaultText}</option>` +
+      options.map(v => `<option value="${v}" ${v === selectedValue ? 'selected' : ''}>${v}</option>`).join('');
     select.onchange = applyFilters;
   });
-}
-
-function resetFilters() {
-  ['monthFilter','severityFilter','issueFilter','enterpriseFilter','productTypeFilter','qcFilter']
-    .forEach(id => document.getElementById(id).selectedIndex = 0);
-  applyFilters();
 }
 
 function applyFilters() {
@@ -193,57 +176,75 @@ function applyFilters() {
     Product_Type: document.getElementById('productTypeFilter').value,
     QC: document.getElementById('qcFilter').value
   };
-  const filtered = globalData.filter(row =>
+
+  // Full filters for Marked Spins
+  const markedMatch = row =>
     (!filters.Month || row['Month'] === filters.Month) &&
     (!filters.Severity || row['Severity'] === filters.Severity) &&
     (!filters.Issue || row['Issue'] === filters.Issue) &&
     (!filters.Enterprise || row['Enterprise'] === filters.Enterprise) &&
     (!filters.Product_Type || row['Product_Type'] === filters.Product_Type) &&
-    (!filters.QC || row['QC'] === filters.QC)
-  );
-  renderIssueTable(filtered);
-  renderEnterpriseIssueTable(filtered);
-  renderSpinTable(filtered);
-  renderPieChart(filtered);
-  renderBarChart(filtered);
+    (!filters.QC || row['QC'] === filters.QC);
+
+  // Partial filters for Received Spins
+  const receivedMatch = row =>
+    (!filters.Month || row['Month'] === filters.Month) &&
+    (!filters.Enterprise || row['Enterprise'] === filters.Enterprise) &&
+    (!filters.Product_Type || row['Product_Type'] === filters.Product_Type) &&
+    (!filters.QC || row['QC'] === filters.QC);
+
+  const filteredMarked = globalData.filter(markedMatch);
+  const filteredReceived = totalDataGlobal.filter(receivedMatch);
+
+  document.getElementById('markedSpin').textContent = new Set(filteredMarked.map(r => r['Spin_id'])).size;
+  document.getElementById('receivedSpin').textContent = new Set(filteredReceived.map(r => r['Spin_id'])).size;
+
+  populateFilters(globalData);
+  renderIssueTable(filteredMarked);
+  renderEnterpriseIssueTable(filteredMarked);
+  renderSpinTable(filteredMarked);
+  renderPieChart(filteredMarked);
+  renderBarChart(filteredMarked);
 }
+
+
 function renderIssueTable(data) {
   const tbody = document.getElementById('issueSummary').querySelector('tbody');
-  const issueMap = {};
-  let totalRows = 0;
+  const map = {};
   data.forEach(row => {
     const issue = row['Issue'] || 'Other';
     const sev = row['Severity'] || 'Low';
-    if (!issueMap[issue]) issueMap[issue] = { Blocker: 0, High: 0, Low: 0, Total: 0 };
-    issueMap[issue][sev]++;
-    issueMap[issue].Total++;
-    totalRows++;
+    if (!map[issue]) map[issue] = { Blocker: 0, High: 0, Low: 0, Total: 0 };
+    map[issue][sev]++; map[issue].Total++;
   });
   tbody.innerHTML = '';
-  const total = totalRows;
-  Object.entries(issueMap).forEach(([issue, stats]) => {
-    const percent = (stats.Total / total * 100).toFixed(1);
-    tbody.innerHTML += `<tr><td>${issue}</td><td><b>${percent}%</b> (${stats.Total})</td><td><b>${((stats.Blocker / stats.Total) * 100).toFixed(1)}%</b> (${stats.Blocker})</td><td><b>${((stats.High / stats.Total) * 100).toFixed(1)}%</b> (${stats.High})</td><td><b>${((stats.Low / stats.Total) * 100).toFixed(1)}%</b> (${stats.Low})</td></tr>`;
+  const total = data.length;
+  Object.entries(map).forEach(([issue, s]) => {
+    tbody.innerHTML += `<tr><td>${issue}</td>
+      <td><b>${((s.Total / total) * 100).toFixed(1)}%</b> (${s.Total})</td>
+      <td><b>${((s.Blocker / s.Total) * 100).toFixed(1)}%</b> (${s.Blocker})</td>
+      <td><b>${((s.High / s.Total) * 100).toFixed(1)}%</b> (${s.High})</td>
+      <td><b>${((s.Low / s.Total) * 100).toFixed(1)}%</b> (${s.Low})</td></tr>`;
   });
 }
 
 function renderEnterpriseIssueTable(data) {
   const tbody = document.getElementById('enterpriseSummary').querySelector('tbody');
-  const entMap = {};
-  let totalRows = 0;
+  const map = {};
   data.forEach(row => {
     const ent = row['Enterprise'] || 'Unknown';
     const sev = row['Severity'] || 'Low';
-    if (!entMap[ent]) entMap[ent] = { Blocker: 0, High: 0, Low: 0, Total: 0 };
-    entMap[ent][sev]++;
-    entMap[ent].Total++;
-    totalRows++;
+    if (!map[ent]) map[ent] = { Blocker: 0, High: 0, Low: 0, Total: 0 };
+    map[ent][sev]++; map[ent].Total++;
   });
   tbody.innerHTML = '';
-  const total = totalRows;
-  Object.entries(entMap).forEach(([ent, stats]) => {
-    const percent = (stats.Total / total * 100).toFixed(1);
-    tbody.innerHTML += `<tr><td>${ent}</td><td><b>${percent}%</b> (${stats.Total})</td><td><b>${((stats.Blocker / stats.Total) * 100).toFixed(1)}%</b> (${stats.Blocker})</td><td><b>${((stats.High / stats.Total) * 100).toFixed(1)}%</b> (${stats.High})</td><td><b>${((stats.Low / stats.Total) * 100).toFixed(1)}%</b> (${stats.Low})</td></tr>`;
+  const total = data.length;
+  Object.entries(map).forEach(([ent, s]) => {
+    tbody.innerHTML += `<tr><td>${ent}</td>
+      <td><b>${((s.Total / total) * 100).toFixed(1)}%</b> (${s.Total})</td>
+      <td><b>${((s.Blocker / s.Total) * 100).toFixed(1)}%</b> (${s.Blocker})</td>
+      <td><b>${((s.High / s.Total) * 100).toFixed(1)}%</b> (${s.High})</td>
+      <td><b>${((s.Low / s.Total) * 100).toFixed(1)}%</b> (${s.Low})</td></tr>`;
   });
 }
 
@@ -252,28 +253,21 @@ function renderSpinTable(data) {
   tbody.innerHTML = '';
   data.forEach(row => {
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td class="clickable" onclick="document.getElementById('spinIframe').src='${row['Spin'] || ''}'">${row['Spin_id']}</td><td>${row['Issue']}</td><td>${row['Severity']}</td><td>${row['Enterprise']}</td>`;
+    tr.innerHTML = `<td class="clickable" onclick="document.getElementById('spinIframe').src='${row['Spin']}'">${row['Spin_id']}</td>
+      <td>${row['Issue']}</td><td>${row['Severity']}</td><td>${row['Enterprise']}</td>`;
     tbody.appendChild(tr);
   });
 }
 
 function renderPieChart(data) {
   const sevCount = { Blocker: 0, High: 0, Low: 0 };
-  data.forEach(row => {
-    sevCount[row['Severity']] = (sevCount[row['Severity']] || 0) + 1;
-  });
+  data.forEach(row => sevCount[row['Severity']] = (sevCount[row['Severity']] || 0) + 1);
   const total = Object.values(sevCount).reduce((a, b) => a + b, 0);
   const ctx = document.getElementById('severityPie').getContext('2d');
   if (window.pieChart) window.pieChart.destroy();
   window.pieChart = new Chart(ctx, {
     type: 'pie',
-    data: {
-      labels: Object.keys(sevCount),
-      datasets: [{
-        data: Object.values(sevCount),
-        backgroundColor: ['#FF6384', '#36A2EB', '#4BC0C0']
-      }]
-    },
+    data: { labels: Object.keys(sevCount), datasets: [{ data: Object.values(sevCount), backgroundColor: ['#FF6384', '#36A2EB', '#4BC0C0'] }] },
     options: {
       plugins: {
         legend: { position: 'right' },
@@ -294,26 +288,17 @@ function renderBarChart(data) {
     issueCounts[issue] = (issueCounts[issue] || 0) + 1;
   });
   const total = Object.values(issueCounts).reduce((a, b) => a + b, 0);
-  const percentages = Object.values(issueCounts).map(v => ((v / total) * 100).toFixed(1));
+  const ctx = document.getElementById('issueChart').getContext('2d');
   if (window.barChart) window.barChart.destroy();
-  window.barChart = new Chart(document.getElementById('issueChart').getContext('2d'), {
+  window.barChart = new Chart(ctx, {
     type: 'bar',
     data: {
       labels: Object.keys(issueCounts),
-      datasets: [{
-        label: 'Issue %',
-        data: percentages,
-        backgroundColor: '#007bff'
-      }]
+      datasets: [{ label: 'Issue %', data: Object.values(issueCounts).map(v => ((v / total) * 100).toFixed(1)), backgroundColor: '#007bff' }]
     },
     options: {
       plugins: {
-        datalabels: {
-          anchor: 'end',
-          align: 'end',
-          formatter: value => `${value}%`,
-          color: '#000'
-        }
+        datalabels: { anchor: 'end', align: 'end', formatter: v => `${v}%`, color: '#000' }
       },
       scales: { y: { beginAtZero: true } }
     },
@@ -326,47 +311,29 @@ function sortTable(header) {
   const tbody = table.querySelector('tbody');
   const index = Array.from(header.parentNode.children).indexOf(header);
   const rows = Array.from(tbody.querySelectorAll('tr'));
-  const descending = header.classList.toggle('desc');
-
+  const desc = header.classList.toggle('desc');
   rows.sort((a, b) => {
-    const getPercentage = (row) => {
-      const text = row.children[index].textContent;
-      const match = text.match(/([\d.]+)%/); // Extract percentage
-      return match ? parseFloat(match[1]) : 0;
-    };
-    return descending ? getPercentage(b) - getPercentage(a) : getPercentage(a) - getPercentage(b);
+    const getVal = row => parseFloat((row.children[index].textContent.match(/([\d.]+)%/) || [])[1] || 0);
+    return desc ? getVal(b) - getVal(a) : getVal(a) - getVal(b);
   });
-
-  tbody.innerHTML = '';
-  rows.forEach(row => tbody.appendChild(row));
-
-  Array.from(header.parentNode.children).forEach(th => {
-    if (th !== header) th.classList.remove('desc');
-  });
+  tbody.innerHTML = ''; rows.forEach(r => tbody.appendChild(r));
+  Array.from(header.parentNode.children).forEach(th => th !== header && th.classList.remove('desc'));
 }
-
 
 function exportTableToCSV(filename) {
   const rows = Array.from(document.querySelectorAll("#spinTable tr")).map(tr =>
     Array.from(tr.querySelectorAll("td, th")).map(td => td.textContent.trim()).join(",")
   );
-  const csv = rows.join("\n");
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  window.URL.revokeObjectURL(url);
+  const blob = new Blob([rows.join("\n")], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
 }
 
 window.onload = () => {
   loadAndRender().then(() => {
-    const blockerHeader = document.querySelector("#issueSummary thead tr th:nth-child(3)");
-    if (blockerHeader) sortTable(blockerHeader);
-
-    const entBlocker = document.querySelector("#enterpriseSummary thead tr th:nth-child(3)");
-    if (entBlocker) sortTable(entBlocker);
+    sortTable(document.querySelector("#issueSummary thead th:nth-child(3)"));
+    sortTable(document.querySelector("#enterpriseSummary thead th:nth-child(3)"));
   });
 };
 </script>
