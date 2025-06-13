@@ -280,10 +280,10 @@
     const total = data.length;
     Object.entries(issueMap).forEach(([issue, s]) => {
       tbody.innerHTML += `<tr><td>${issue}</td>
-        <td><b>${((s.Total / total) * 100).toFixed(1)}%</b> (${s.Total})</td>
-        <td><b>${((s.Blocker / s.Total) * 100).toFixed(1)}%</b> (${s.Blocker})</td>
-        <td><b>${((s.High / s.Total) * 100).toFixed(1)}%</b> (${s.High})</td>
-        <td><b>${((s.Low / s.Total) * 100).toFixed(1)}%</b> (${s.Low})</td></tr>`;
+  <td><b>${((s.Total / total) * 100).toFixed(1)}%</b> <span style="font-size: 0.6em; color: #666;">(${s.Total})</span></td>
+  <td><b>${((s.Blocker / s.Total) * 100).toFixed(1)}%</b> <span style="font-size: 0.6em; color: #666;">(${s.Blocker})</span></td>
+  <td><b>${((s.High / s.Total) * 100).toFixed(1)}%</b> <span style="font-size: 0.6em; color: #666;">(${s.High})</span></td>
+  <td><b>${((s.Low / s.Total) * 100).toFixed(1)}%</b> <span style="font-size: 0.6em; color: #666;">(${s.Low})</span></td></tr>`;
     });
   }
 
@@ -301,10 +301,10 @@
     const total = data.length;
     Object.entries(enterpriseMap).forEach(([ent, s]) => {
       tbody.innerHTML += `<tr><td>${ent}</td>
-        <td><b>${((s.Total / total) * 100).toFixed(1)}%</b> (${s.Total})</td>
-        <td><b>${((s.Blocker / s.Total) * 100).toFixed(1)}%</b> (${s.Blocker})</td>
-        <td><b>${((s.High / s.Total) * 100).toFixed(1)}%</b> (${s.High})</td>
-        <td><b>${((s.Low / s.Total) * 100).toFixed(1)}%</b> (${s.Low})</td></tr>`;
+  <td><b>${((s.Total / total) * 100).toFixed(1)}%</b> <span style="font-size: 0.6em; color: #666;">(${s.Total})</span></td>
+  <td><b>${((s.Blocker / s.Total) * 100).toFixed(1)}%</b> <span style="font-size: 0.6em; color: #666;">(${s.Blocker})</span></td>
+  <td><b>${((s.High / s.Total) * 100).toFixed(1)}%</b> <span style="font-size: 0.6em; color: #666;">(${s.High})</span></td>
+  <td><b>${((s.Low / s.Total) * 100).toFixed(1)}%</b> <span style="font-size: 0.6em; color: #666;">(${s.Low})</span></td></tr>`;
     });
   }
 
@@ -656,37 +656,43 @@
   }
 
   function sortTable(header) {
-    const table = header.closest('table');
-    const tbody = table.querySelector('tbody');
-    const index = Array.from(header.parentNode.children).indexOf(header);
-    const rows = Array.from(tbody.querySelectorAll('tr'));
-    const desc = header.classList.toggle('desc');
+  const table = header.closest('table');
+  const tbody = table.querySelector('tbody');
+  const index = Array.from(header.parentNode.children).indexOf(header);
+  const rows = Array.from(tbody.querySelectorAll('tr'));
 
-    rows.sort((a,b) => {
-      const valA = a.children[index].textContent.trim();
-      const valB = b.children[index].textContent.trim();
+  // Remove old sort indicators
+  Array.from(header.parentNode.children).forEach(th => {
+    if (th !== header) th.classList.remove('asc', 'desc');
+  });
 
-      const regex = /^(\d+)(?:\s*\(\d+\.?\d*%\))?$/;
-      const matchA = valA.match(regex);
-      const matchB = valB.match(regex);
+  // Determine current sort direction
+  const isDesc = header.classList.contains('desc');
+  header.classList.toggle('desc', !isDesc);
+  header.classList.toggle('asc', isDesc);
 
-      if(matchA && matchB) {
-        const numA = parseInt(matchA[1],10);
-        const numB = parseInt(matchB[1],10);
-        return desc ? numB - numA : numA - numB;
-      }
+  const parseCell = (text) => {
+    const match = text.match(/([\d.]+)/); // capture the first number
+    return match ? parseFloat(match[1]) : text.trim().toLowerCase();
+  };
 
-      if (valA < valB) return desc ? 1 : -1;
-      if (valA > valB) return desc ? -1 : 1;
-      return 0;
-    });
+  rows.sort((a, b) => {
+    const valA = parseCell(a.children[index].textContent);
+    const valB = parseCell(b.children[index].textContent);
 
-    tbody.innerHTML = '';
-    rows.forEach(r => tbody.appendChild(r));
-    Array.from(header.parentNode.children).forEach(th => {
-      if(th !== header) th.classList.remove('desc');
-    });
-  }
+    const isNumeric = !isNaN(valA) && !isNaN(valB);
+    if (isNumeric) {
+      return (isDesc ? valA - valB : valB - valA); // note: reversed due to toggle
+    } else {
+      return isDesc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+    }
+  });
+
+  // Rebuild sorted tbody
+  tbody.innerHTML = '';
+  rows.forEach(row => tbody.appendChild(row));
+}
+
 
   document.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', () => {
