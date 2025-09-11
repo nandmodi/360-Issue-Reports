@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>360 QC Review Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" href="https://spyne-prod-ai.s3.us-east-1.amazonaws.com/ai-dataset/2025/favicon.ico" type="image/x-icon" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
   <style>
@@ -10,23 +11,32 @@
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background: #f4f7fa;
       color: #333;
-      padding: 40px 20px;
+      padding: 20px;
       margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
     h2 {
       font-weight: 700;
       color: #222;
-      margin-bottom: 30px;
+      margin-bottom: 20px;
       text-align: center;
       letter-spacing: 1.2px;
     }
     .filters {
       display: flex;
       flex-wrap: wrap;
-      justify-content: flex-start;
+      justify-content: center;
       align-items: flex-end;
-      gap: 20px 30px;
+      gap: 15px;
       margin-bottom: 30px;
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      width: 100%;
+      max-width: 900px;
     }
     .filters > div {
       display: flex;
@@ -36,6 +46,7 @@
     .filters label {
       font-weight: 600;
       color: #555;
+      white-space: nowrap;
     }
     .filters select {
       padding: 8px;
@@ -45,82 +56,110 @@
       min-width: 150px;
       cursor: pointer;
     }
-    .table-container {
-      overflow-x: auto;
+    .viewer-container {
+      width: 100%;
+      max-width: 900px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
       background-color: #fff;
+      padding: 20px;
       border-radius: 8px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-      padding: 20px;
     }
-    table {
+    .viewer-details {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 15px;
       width: 100%;
-      border-collapse: separate;
-      border-spapse: 0;
-    }
-    thead th {
-      text-align: left;
-      padding: 15px;
-      background-color: #eef2f7;
-      border-bottom: 2px solid #ddd;
-      font-size: 13px;
-      font-weight: 700;
-      color: #666;
-      text-transform: uppercase;
-    }
-    tbody tr {
+      padding-bottom: 15px;
       border-bottom: 1px solid #eee;
-      transition: background-color 0.2s ease;
     }
-    tbody tr:hover {
-      background-color: #f8fbfd;
-    }
-    tbody td {
-      padding: 15px;
+    .viewer-details div {
       font-size: 14px;
-      color: #444;
-      white-space: nowrap;
+      color: #555;
+    }
+    .viewer-details strong {
+      color: #222;
+    }
+    .iframe-container {
+      width: 100%;
+      padding-top: 56.25%; /* 16:9 Aspect Ratio */
+      position: relative;
+      border-radius: 8px;
       overflow: hidden;
-      text-overflow: ellipsis;
     }
-    .status-indicator {
-      display: inline-block;
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      margin-right: 8px;
+    .iframe-container iframe {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
     }
-    .status-passed {
-      background-color: #4CAF50;
-    }
-    .status-failed {
-      background-color: #f44336;
-    }
-    .loading {
+    .navigation-buttons {
       display: flex;
       justify-content: center;
-      align-items: center;
-      padding: 40px;
-      font-size: 18px;
-      color: #666;
+      gap: 20px;
+      width: 100%;
     }
-    .loading::after {
-      content: "";
-      width: 20px;
-      height: 20px;
-      margin-left: 10px;
-      border: 3px solid #ddd;
-      border-radius: 50%;
-      border-top-color: #4CAF50;
-      animation: spin 1s linear infinite;
-    }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-    .data-info {
+    .btn {
+      padding: 12px 25px;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.2s ease, transform 0.2s ease;
+      min-width: 120px;
       text-align: center;
-      padding: 15px;
-      color: #666;
-      font-style: italic;
+    }
+    .btn-primary {
+      background-color: #4CAF50;
+      color: #fff;
+    }
+    .btn-primary:hover:not(:disabled) {
+      background-color: #45a049;
+      transform: translateY(-2px);
+    }
+    .btn-secondary {
+      background-color: #f4f4f4;
+      color: #555;
+    }
+    .btn-secondary:hover:not(:disabled) {
+      background-color: #e0e0e0;
+      transform: translateY(-2px);
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .error-message {
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: #ef4444;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        z-index: 1001;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+    .error-message.active {
+        opacity: 1;
+        visibility: visible;
+    }
+    .no-results-message {
+      text-align: center;
+      color: #777;
+      margin-top: 20px;
+      display: none;
+      font-weight: 600;
     }
   </style>
 </head>
@@ -129,204 +168,162 @@
   <div class="filters">
     <div>
       <label for="month-filter">Month:</label>
-      <select id="month-filter">
-        <option value="">All Months</option>
-      </select>
+      <select id="month-filter"></select>
     </div>
     <div>
       <label for="enterprise-filter">Enterprise:</label>
-      <select id="enterprise-filter">
-        <option value="">All Enterprises</option>
-      </select>
-    </div>
-    <div>
-      <label for="user-filter">User:</label>
-      <select id="user-filter">
-        <option value="">All Users</option>
-      </select>
+      <select id="enterprise-filter"></select>
     </div>
     <div>
       <label for="product-type-filter">Product Type:</label>
-      <select id="product-type-filter">
-        <option value="">All Types</option>
-      </select>
-    </div>
-    <div>
-      <label for="status-filter">Status:</label>
-      <select id="status-filter">
-        <option value="">All Status</option>
-        <option value="Passed">Passed</option>
-        <option value="Failed">Failed</option>
-      </select>
+      <select id="product-type-filter"></select>
     </div>
   </div>
 
-  <div class="table-container">
-    <div id="loading" class="loading">Loading data...</div>
-    <table style="display: none;">
-      <thead>
-        <tr>
-          <th>Spin ID</th>
-          <th>SKU ID</th>
-          <th>Enterprise</th>
-          <th>User</th>
-          <th>Product Type</th>
-          <th>Status</th>
-          <th>Issues</th>
-        </tr>
-      </thead>
-      <tbody id="table-body"></tbody>
-    </table>
-    <div id="data-info" class="data-info" style="display: none;"></div>
+  <div class="viewer-container">
+    <div class="viewer-details" id="viewer-details">
+      <!-- Spin details will be injected here -->
+    </div>
+    <div class="iframe-container">
+      <iframe id="spin-iframe" frameborder="0" allowfullscreen></iframe>
+    </div>
+    <div class="navigation-buttons" id="navigation-buttons">
+      <button id="prev-btn" class="btn btn-secondary">Previous</button>
+      <button id="next-btn" class="btn btn-primary">Next</button>
+    </div>
+    <div id="no-results-message" class="no-results-message">
+      No spins found with validation errors for the current filters. Please try a different selection.
+    </div>
   </div>
+
+  <div id="error-message" class="error-message"></div>
 
   <script>
     const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTmm6um2dDueAholFhs2olel5wv2mqH9f1jCAfdL8Qi76mzqbTfzu7OYRea5PwSJP0eD0RLuF6XOkTy/pub?gid=0&single=true&output=csv';
     
     const elements = {
-      tableBody: document.getElementById('table-body'),
-      loading: document.getElementById('loading'),
-      table: document.querySelector('table'),
-      dataInfo: document.getElementById('data-info'),
+      spinIframe: document.getElementById('spin-iframe'),
+      prevBtn: document.getElementById('prev-btn'),
+      nextBtn: document.getElementById('next-btn'),
       monthFilter: document.getElementById('month-filter'),
       enterpriseFilter: document.getElementById('enterprise-filter'),
-      userFilter: document.getElementById('user-filter'),
       productTypeFilter: document.getElementById('product-type-filter'),
-      statusFilter: document.getElementById('status-filter')
+      errorMessage: document.getElementById('error-message'),
+      viewerDetails: document.getElementById('viewer-details'),
+      navigationButtons: document.getElementById('navigation-buttons'),
+      noResultsMessage: document.getElementById('no-results-message'),
     };
 
     let allData = [];
     let filteredData = [];
+    let currentIndex = 0;
+
+    const escapeHtmlAttr = (str) => {
+      if (!str) return '';
+      return String(str).replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    };
+
+    const showMessage = (message, isError = true) => {
+        elements.errorMessage.textContent = message;
+        elements.errorMessage.classList.add('active');
+        if (isError) {
+            elements.errorMessage.style.backgroundColor = '#ef4444';
+        } else {
+            elements.errorMessage.style.backgroundColor = '#4CAF50';
+        }
+        setTimeout(() => {
+            elements.errorMessage.classList.remove('active');
+        }, 3000);
+    };
 
     const fetchCsvData = async () => {
       try {
         const response = await fetch(CSV_URL);
-        if (!response.ok) throw new Error('Failed to fetch CSV data');
+        if (!response.ok) throw new Error('Failed to fetch CSV data. Please check the URL and ensure the file is public.');
         const text = await response.text();
-        const { data } = Papa.parse(text, { header: true, skipEmptyLines: true });
-        
-        // Process data
-        allData = data.map(row => {
-          // Determine status based on validation columns
-          const status = (row['validation_status'] === 'Passed' && row['vdp_validation_status'] === 'Passed') ? 'Passed' : 'Failed';
-          
-          // Combine issues
-          const issues = [];
-          if (row['validation_failure_reason']) issues.push(row['validation_failure_reason']);
-          if (row['vdp_validation_failure_reason']) issues.push(row['vdp_validation_failure_reason']);
-          
-          return {
-            spinId: row['Spin_id'] || 'N/A',
-            skuId: row['Sku_id'] || 'N/A',
-            enterprise: row['Enterprise'] || 'N/A',
-            user: row['QC'] || 'N/A',
-            productType: row['Product_Type'] || 'N/A',
-            status: status,
-            issues: issues.join('; ') || 'None',
-            month: row['Month'] || 'N/A'
-          };
-        });
-        
+        const { data } = Papa.parse(text, { header: true, dynamicTyping: true, skipEmptyLines: true });
+        // Initially filter to only include data with validation errors
+        allData = data.filter(row => row['Spin_id'] && row['Spin_URL'] && (row['validation_failure_reason'] || row['vdp_validation_failure_reason']));
         populateFilters();
         applyFilters();
-        
-        // Hide loading, show table
-        elements.loading.style.display = 'none';
-        elements.table.style.display = 'table';
-        
       } catch (error) {
-        elements.loading.textContent = 'Error loading data. Please try again later.';
+        showMessage(`Error fetching or parsing CSV: ${error.message}`);
         console.error('Error fetching or parsing CSV:', error);
       }
     };
 
     const populateFilters = () => {
-      const getUniqueValues = (key) => {
-        const values = [...new Set(allData.map(d => d[key]))].filter(Boolean);
-        return values.sort();
-      };
-      
+      const getUniqueValues = (key) => [...new Set(allData.map(d => d[key]))].sort();
       const fillSelect = (select, values) => {
+        select.innerHTML = '<option value="">All</option>';
         values.forEach(value => {
-          const option = document.createElement('option');
-          option.value = value;
-          option.textContent = value;
-          select.appendChild(option);
+          if (value) {
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = value;
+            select.appendChild(option);
+          }
         });
       };
-      
-      fillSelect(elements.monthFilter, getUniqueValues('month'));
-      fillSelect(elements.enterpriseFilter, getUniqueValues('enterprise'));
-      fillSelect(elements.userFilter, getUniqueValues('user'));
-      fillSelect(elements.productTypeFilter, getUniqueValues('productType'));
+      fillSelect(elements.monthFilter, getUniqueValues('Month'));
+      fillSelect(elements.enterpriseFilter, getUniqueValues('Enterprise'));
+      fillSelect(elements.productTypeFilter, getUniqueValues('Product_Type'));
     };
 
     const applyFilters = () => {
       const selectedMonth = elements.monthFilter.value;
       const selectedEnterprise = elements.enterpriseFilter.value;
-      const selectedUser = elements.userFilter.value;
       const selectedProductType = elements.productTypeFilter.value;
-      const selectedStatus = elements.statusFilter.value;
       
       filteredData = allData.filter(row => {
-        const monthMatch = !selectedMonth || row.month === selectedMonth;
-        const enterpriseMatch = !selectedEnterprise || row.enterprise === selectedEnterprise;
-        const userMatch = !selectedUser || row.user === selectedUser;
-        const productTypeMatch = !selectedProductType || row.productType === selectedProductType;
-        const statusMatch = !selectedStatus || row.status === selectedStatus;
-        
-        return monthMatch && enterpriseMatch && userMatch && productTypeMatch && statusMatch;
+        const monthMatch = !selectedMonth || row['Month'] === selectedMonth;
+        const enterpriseMatch = !selectedEnterprise || row['Enterprise'] === selectedEnterprise;
+        const productTypeMatch = !selectedProductType || row['Product_Type'] === selectedProductType;
+        return monthMatch && enterpriseMatch && productTypeMatch;
       });
-      
-      renderTable(filteredData);
-      
-      // Update data info
-      elements.dataInfo.style.display = 'block';
-      elements.dataInfo.textContent = `Showing ${filteredData.length} of ${allData.length} records`;
+      currentIndex = 0;
+      renderSpin();
     };
 
-    const renderTable = (data) => {
-      elements.tableBody.innerHTML = '';
-      
-      if (data.length === 0) {
-        const row = document.createElement('tr');
-        row.innerHTML = `<td colspan="7" style="text-align: center; color: #888;">No records found matching your filters.</td>`;
-        elements.tableBody.appendChild(row);
-        return;
-      }
-      
-      data.forEach(row => {
-        const tr = document.createElement('tr');
-        const statusClass = row.status === 'Passed' ? 'status-passed' : 'status-failed';
-        
-        tr.innerHTML = `
-          <td>${escapeHtml(row.spinId)}</td>
-          <td>${escapeHtml(row.skuId)}</td>
-          <td>${escapeHtml(row.enterprise)}</td>
-          <td>${escapeHtml(row.user)}</td>
-          <td>${escapeHtml(row.productType)}</td>
-          <td><span class="status-indicator ${statusClass}"></span>${escapeHtml(row.status)}</td>
-          <td>${escapeHtml(row.issues)}</td>
+    const renderSpin = () => {
+      if (filteredData.length > 0) {
+        const currentItem = filteredData[currentIndex];
+        const validationError = currentItem['validation_failure_reason'] || currentItem['vdp_validation_failure_reason'] || 'No validation errors';
+        elements.spinIframe.src = currentItem['Spin_URL'];
+        elements.viewerDetails.innerHTML = `
+          <div><strong>Enterprise:</strong> ${escapeHtmlAttr(currentItem['Enterprise'])}</div>
+          <div><strong>SKU ID:</strong> ${escapeHtmlAttr(currentItem['Sku_id'])}</div>
+          <div><strong>Product Type:</strong> ${escapeHtmlAttr(currentItem['Product_Type'])}</div>
+          <div><strong>Error:</strong> ${escapeHtmlAttr(validationError)}</div>
         `;
-        elements.tableBody.appendChild(tr);
-      });
+        elements.prevBtn.disabled = currentIndex === 0;
+        elements.nextBtn.disabled = currentIndex >= filteredData.length - 1;
+        elements.navigationButtons.style.display = 'flex';
+        elements.noResultsMessage.style.display = 'none';
+      } else {
+        elements.spinIframe.src = 'about:blank';
+        elements.viewerDetails.innerHTML = '';
+        elements.prevBtn.disabled = true;
+        elements.nextBtn.disabled = true;
+        elements.navigationButtons.style.display = 'none';
+        elements.noResultsMessage.style.display = 'block';
+      }
     };
 
-    const escapeHtml = (text) => {
-      if (!text) return '';
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
+    const navigate = (direction) => {
+      const newIndex = currentIndex + direction;
+      if (newIndex >= 0 && newIndex < filteredData.length) {
+        currentIndex = newIndex;
+        renderSpin();
+      }
     };
 
-    // Set up event listeners for filters
+    elements.prevBtn.addEventListener('click', () => navigate(-1));
+    elements.nextBtn.addEventListener('click', () => navigate(1));
     elements.monthFilter.addEventListener('change', applyFilters);
     elements.enterpriseFilter.addEventListener('change', applyFilters);
-    elements.userFilter.addEventListener('change', applyFilters);
     elements.productTypeFilter.addEventListener('change', applyFilters);
-    elements.statusFilter.addEventListener('change', applyFilters);
 
-    // Load data
     fetchCsvData();
   </script>
 </body>
