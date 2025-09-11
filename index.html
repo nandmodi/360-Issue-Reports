@@ -117,7 +117,7 @@
             <th onclick="sortTable(this)">High</th>
             <th onclick="sortTable(this)">Low</th>
           </tr>
-        </thead>
+</thead>
         <tbody></tbody>
       </table>
     </div>
@@ -157,17 +157,35 @@
       <tbody id="severityDetailsBody"></tbody>
     </table>
 
+ <div class="summary-tables">
+      <h3>Severity Details (Week-wise)</h3>
+      <table id="severityDetailsWeekTable">
+        <thead><tr id="severityDetailsWeekHeader"><th onclick="sortTable(this)">Severity</th></tr></thead>
+        <tbody id="severityDetailsWeekBody"></tbody>
+      </table>
+    </div>
+
     <h3>Issue Details (Month-wise)</h3>
     <table id="issueDetailsTable">
       <thead><tr id="issueDetailsHeader"><th onclick="sortTable(this)">Issue</th></tr></thead>
       <tbody id="issueDetailsBody"></tbody>
     </table>
+
+   
+    <div class="summary-tables">
+      <h3>Issue Details (Week-wise)</h3>
+      <table id="issueDetailsWeekTable">
+        <thead><tr id="issueDetailsWeekHeader"><th onclick="sortTable(this)">Issue</th></tr></thead>
+        <tbody id="issueDetailsWeekBody"></tbody>
+      </table>
+    </div>
   </div>
 </div>
 
 <script>
   let globalData = [];
   let totalDataGlobal = [];
+  let weekRanges = {};
 
   let severityTrendChartInstance = null;
   let issueTrendChartInstance = null;
@@ -181,6 +199,7 @@
     ]);
     globalData = qcData;
     totalDataGlobal = totalData;
+    calculateLastFourWeeks();
     applyFilters();
   }
 
@@ -196,6 +215,53 @@
     );
   }
 
+  // Helper function to format week range strings
+  function getFormattedWeekRange(start, end) {
+    const startMonth = start.toLocaleString('default', { month: 'short' });
+    const endMonth = end.toLocaleString('default', { month: 'short' });
+    const startDay = start.getDate();
+    const endDay = end.getDate();
+    return `${startMonth} ${startDay} - ${endMonth} ${endDay}`;
+  }
+
+  // This function dynamically calculates the last four complete weeks.
+  function calculateLastFourWeeks() {
+    weekRanges = {};
+    const today = new Date();
+    // Start with the most recent Sunday as the end of the first week.
+    // getDay() returns 0 for Sunday, so we subtract that many days to get to the Sunday of the current week.
+    const lastSunday = new Date(today.setDate(today.getDate() - today.getDay()));
+
+    for (let i = 0; i < 4; i++) {
+        // Create a new date object for the end of the week, moving back 7 days each iteration.
+        const weekEndDate = new Date(lastSunday.getTime());
+        weekEndDate.setDate(lastSunday.getDate() - (i * 7));
+        
+        // Calculate the start date for the week (7 days before end date)
+        const weekStartDate = new Date(weekEndDate.getTime());
+        weekStartDate.setDate(weekEndDate.getDate() - 6);
+
+        // This is the dynamic label for the filter dropdown
+        const weekName = `Week ${i + 1}`;
+        weekRanges[weekName] = { 
+            name: `${weekName}: ${getFormattedWeekRange(weekStartDate, weekEndDate)}`,
+            start: weekStartDate,
+            end: weekEndDate 
+        };
+    }
+  }
+
+  function resetFilters() {
+    document.getElementById('monthFilter').value = '';
+    document.getElementById('severityFilter').value = '';
+    document.getElementById('issueFilter').value = '';
+    document.getElementById('enterpriseFilter').value = '';
+    document.getElementById('productTypeFilter').value = '';
+    document.getElementById('qcFilter').value = '';
+    applyFilters();
+  }
+
+
   function populateFilters(data) {
     const config = {
       monthFilter: 'Month', severityFilter: 'Severity', issueFilter: 'Issue',
@@ -205,7 +271,14 @@
       const select = document.getElementById(id);
       const selectedValue = select.value;
       const defaultText = select.getAttribute('data-label') || key;
-      const options = [...new Set(data.map(d => d[key] || '').filter(Boolean))];
+      let options = [...new Set(data.map(d => d[key] || '').filter(Boolean))];
+
+      if (id === 'monthFilter') {
+        // Display the dynamic week ranges in the dropdown, with Week 1 at the top.
+        const weekOptions = Object.values(weekRanges).map(w => w.name).reverse();
+        options = [...options, ...weekOptions];
+      }
+
       select.innerHTML = `<option value="">${defaultText}</option>` +
         options.map(v => `<option value="${v}" ${v === selectedValue ? 'selected' : ''}>${v}</option>`).join('');
       select.onchange = applyFilters;
@@ -222,19 +295,48 @@
       QC: document.getElementById('qcFilter').value
     };
 
-    const markedMatch = row =>
-      (!filters.Month || row['Month'] === filters.Month) &&
-      (!filters.Severity || row['Severity'] === filters.Severity) &&
-      (!filters.Issue || row['Issue'] === filters.Issue) &&
-      (!filters.Enterprise || row['Enterprise'] === filters.Enterprise) &&
-      (!filters.Product_Type || row['Product_Type'] === filters.Product_Type) &&
-      (!filters.QC || row['QC'] === filters.QC);
+    // Find the week range object that matches the selected filter name.
+    const weekFilterKey = Object.keys(weekRanges).find(key => weekRanges[key].name === filters.Month);
+    const isWeekFilter = !!weekFilterKey;
+    const weekRange = isWeekFilter ? weekRanges[weekFilterKey] : null;
 
-    const receivedMatch = row =>
-      (!filters.Month || row['Month'] === filters.Month) &&
-      (!filters.Enterprise || row['Enterprise'] === filters.Enterprise) &&
-      (!filters.Product_Type || row['Product_Type'] === filters.Product_Type) &&
-      (!filters.QC || row['QC'] === filters.QC);
+    const markedMatch = row => {
+      const rowDate = row['Date'] ? new Date(row['Date']) : null;
+      if (!rowDate) return false;
+
+      const rowMonth = row['Month'];
+      
+      const monthMatch = !filters.Month || (
+        !isWeekFilter && rowMonth === filters.Month
+      ) || (
+        isWeekFilter && rowDate >= weekRange.start && rowDate <= weekRange.end
+      );
+
+      return monthMatch &&
+        (!filters.Severity || row['Severity'] === filters.Severity) &&
+        (!filters.Issue || row['Issue'] === filters.Issue) &&
+        (!filters.Enterprise || row['Enterprise'] === filters.Enterprise) &&
+        (!filters.Product_Type || row['Product_Type'] === filters.Product_Type) &&
+        (!filters.QC || row['QC'] === filters.QC);
+    };
+
+    const receivedMatch = row => {
+      const rowDate = row['Date'] ? new Date(row['Date']) : null;
+      if (!rowDate) return false;
+
+      const rowMonth = row['Month'];
+      
+      const monthMatch = !filters.Month || (
+        !isWeekFilter && rowMonth === filters.Month
+      ) || (
+        isWeekFilter && rowDate >= weekRange.start && rowDate <= weekRange.end
+      );
+
+      return monthMatch &&
+        (!filters.Enterprise || row['Enterprise'] === filters.Enterprise) &&
+        (!filters.Product_Type || row['Product_Type'] === filters.Product_Type) &&
+        (!filters.QC || row['QC'] === filters.QC);
+    };
 
     const filteredMarked = globalData.filter(markedMatch);
     const filteredReceived = totalDataGlobal.filter(receivedMatch);
@@ -255,6 +357,8 @@
     renderIssueTrendChart(filteredMarked);
     renderSeverityDetailsTable(filteredMarked);
     renderIssueDetailsTable(filteredMarked);
+    renderSeverityDetailsWeekTable(filteredMarked);
+    renderIssueDetailsWeekTable(filteredMarked);
   }
 
   function populateSummarySection(data) {
@@ -655,6 +759,91 @@
     });
   }
 
+  function renderSeverityDetailsWeekTable(data) {
+    const header = document.getElementById('severityDetailsWeekHeader');
+    const tbody = document.getElementById('severityDetailsWeekBody');
+
+    const weeks = Object.keys(weekRanges)
+  .sort((a, b) => weekRanges[b].start - weekRanges[a].start)
+  .map(key => weekRanges[key].name);
+    const severitiesSet = new Set(data.map(d => d.Severity).filter(Boolean));
+    const severities = Array.from(severitiesSet);
+
+    header.innerHTML = '<th onclick="sortTable(this)">Severity</th>' + weeks.map(w => `<th onclick="sortTable(this)">${w}</th>`).join('');
+
+    const totalsPerWeek = {};
+    const matrix = {};
+
+    data.forEach(row => {
+      const rowDate = new Date(row['Date']);
+      const weekName = Object.keys(weekRanges).find(key => 
+          rowDate >= weekRanges[key].start && rowDate <= weekRanges[key].end
+      );
+
+      if (weekName) {
+        const sev = row.Severity || 'Low';
+        const formattedWeekName = weekRanges[weekName].name;
+        
+        totalsPerWeek[formattedWeekName] = (totalsPerWeek[formattedWeekName] || 0) + 1;
+        if (!matrix[sev]) matrix[sev] = {};
+        matrix[sev][formattedWeekName] = (matrix[sev][formattedWeekName] || 0) + 1;
+      }
+    });
+
+    tbody.innerHTML = '';
+    severities.forEach(sev => {
+      const rowCells = weeks.map(w => {
+        const count = matrix[sev]?.[w] || 0;
+        const total = totalsPerWeek[w] || 1;
+        const percent = ((count / total) * 100).toFixed(1);
+        return `<td>${count} <span style="font-size:0.6em; color:#666;">(${percent}%)</span></td>`;
+      });
+      tbody.innerHTML += `<tr><td>${sev}</td>${rowCells.join('')}</tr>`;
+    });
+  }
+
+  function renderIssueDetailsWeekTable(data) {
+    const header = document.getElementById('issueDetailsWeekHeader');
+    const tbody = document.getElementById('issueDetailsWeekBody');
+
+    const weeks = Object.values(weekRanges).map(w => w.name).reverse();
+    const issuesSet = new Set(data.map(d => d.Issue).filter(Boolean));
+    const issues = Array.from(issuesSet);
+
+    header.innerHTML = '<th onclick="sortTable(this)">Issue</th>' + weeks.map(w => `<th onclick="sortTable(this)">${w}</th>`).join('');
+
+    const totalsPerWeek = {};
+    const matrix = {};
+
+    data.forEach(row => {
+      const rowDate = new Date(row['Date']);
+      const weekName = Object.keys(weekRanges).find(key => 
+          rowDate >= weekRanges[key].start && rowDate <= weekRanges[key].end
+      );
+
+      if (weekName) {
+        const issue = row.Issue || 'Other';
+        const formattedWeekName = weekRanges[weekName].name;
+        
+        totalsPerWeek[formattedWeekName] = (totalsPerWeek[formattedWeekName] || 0) + 1;
+        if (!matrix[issue]) matrix[issue] = {};
+        matrix[issue][formattedWeekName] = (matrix[issue][formattedWeekName] || 0) + 1;
+      }
+    });
+
+    tbody.innerHTML = '';
+    issues.forEach(issue => {
+      const rowCells = weeks.map(w => {
+        const count = matrix[issue]?.[w] || 0;
+        const total = totalsPerWeek[w] || 1;
+        const percent = ((count / total) * 100).toFixed(1);
+        return `<td>${count} <span style="font-size:0.6em; color:#666;">(${percent}%)</span></td>`;
+      });
+      tbody.innerHTML += `<tr><td>${issue}</td>${rowCells.join('')}</tr>`;
+    });
+  }
+
+
   function sortTable(header) {
   const table = header.closest('table');
   const tbody = table.querySelector('tbody');
@@ -714,3 +903,4 @@
 
 </body>
 </html>
+
