@@ -204,11 +204,38 @@
         opacity: 1;
         visibility: visible;
     }
+    .file-upload {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .file-upload-btn {
+      padding: 8px 16px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .file-upload-btn:hover {
+      background-color: #45a049;
+    }
+    .file-name {
+      font-size: 14px;
+      color: #555;
+    }
   </style>
 </head>
 <body>
   <h2>360 QC Review Dashboard</h2>
+  
   <div class="filters">
+    <div class="file-upload">
+      <label for="csv-upload" class="file-upload-btn">Upload CSV File</label>
+      <input type="file" id="csv-upload" accept=".csv" style="display: none;">
+      <span id="file-name" class="file-name">No file selected</span>
+    </div>
     <div>
       <label for="month-filter">Month:</label>
       <select id="month-filter"></select>
@@ -271,7 +298,6 @@
   <div id="error-message" class="error-message"></div>
 
   <script>
-    const CSV_URL = 'uploaded:All data - All-Data (2).csv'; // Assuming the CSV is available at this path
     const GOOGLE_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLScC1-0P3Kq4cQ0J1_s6r3qJ1n8y4zJ8cQy9l5cK4z4K9J7q/formResponse';
     
     const elements = {
@@ -290,6 +316,8 @@
       userFilter: document.getElementById('user-filter'),
       productTypeFilter: document.getElementById('product-type-filter'),
       errorMessage: document.getElementById('error-message'),
+      csvUpload: document.getElementById('csv-upload'),
+      fileName: document.getElementById('file-name')
     };
 
     let allData = [];
@@ -313,19 +341,22 @@
         }, 3000);
     };
 
-    const fetchCsvData = async () => {
-      try {
-        const response = await fetch(CSV_URL);
-        if (!response.ok) throw new Error('Failed to fetch CSV data. Please check the file path and ensure the file is uploaded correctly.');
-        const text = await response.text();
-        const { data } = Papa.parse(text, { header: true, dynamicTyping: true, skipEmptyLines: true });
-        allData = data.filter(row => row['Spin_id'] && row['Spin_URL']);
-        populateFilters();
-        applyFilters();
-      } catch (error) {
-        showMessage(`Error fetching or parsing CSV: ${error.message}`);
-        console.error('Error fetching or parsing CSV:', error);
-      }
+    const parseCsvData = (file) => {
+      Papa.parse(file, {
+        header: true,
+        dynamicTyping: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+          allData = results.data.filter(row => row['Spin_id'] && row['Spin_URL']);
+          populateFilters();
+          applyFilters();
+          showMessage('CSV file loaded successfully!', false);
+        },
+        error: function(error) {
+          showMessage(`Error parsing CSV: ${error.message}`);
+          console.error('Error parsing CSV:', error);
+        }
+      });
     };
 
     const populateFilters = () => {
@@ -450,13 +481,26 @@
       document.body.removeChild(form);
     };
 
+    // Event Listeners
     elements.cancelBtn.addEventListener('click', closeModal);
     elements.monthFilter.addEventListener('change', applyFilters);
     elements.enterpriseFilter.addEventListener('change', applyFilters);
     elements.userFilter.addEventListener('change', applyFilters);
     elements.productTypeFilter.addEventListener('change', applyFilters);
+    
+    // CSV Upload Handling
+    elements.csvUpload.addEventListener('change', (event) => {
+      const file = event.target.files[0];
+      if (file) {
+        elements.fileName.textContent = file.name;
+        parseCsvData(file);
+      }
+    });
 
-    fetchCsvData();
+    // Allow clicking on the upload button label to trigger file selection
+    document.querySelector('.file-upload-btn').addEventListener('click', () => {
+      elements.csvUpload.click();
+    });
   </script>
 </body>
 </html>
