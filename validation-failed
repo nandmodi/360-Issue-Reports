@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>360 QC Review Dashboard</title>
+  <link rel="icon" href="https://spyne-prod-ai.s3.us-east-1.amazonaws.com/ai-dataset/2025/favicon.ico" type="image/x-icon" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f4f7fa;
+      color: #333;
+      padding: 40px 20px;
+      margin: 0;
+    }
+    h2 {
+      font-weight: 700;
+      color: #222;
+      margin-bottom: 30px;
+      text-align: center;
+      letter-spacing: 1.2px;
+    }
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-start;
+      align-items: flex-end;
+      gap: 20px 30px;
+      margin-bottom: 30px;
+    }
+    .filters > div {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .filters label {
+      font-weight: 600;
+      color: #555;
+    }
+    .filters select {
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+      min-width: 150px;
+      cursor: pointer;
+    }
+    .table-container {
+      overflow-x: auto;
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      padding: 20px;
+    }
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+    thead th {
+      text-align: left;
+      padding: 15px;
+      background-color: #eef2f7;
+      border-bottom: 2px solid #ddd;
+      font-size: 13px;
+      font-weight: 700;
+      color: #666;
+      text-transform: uppercase;
+    }
+    tbody tr {
+      border-bottom: 1px solid #eee;
+      transition: background-color 0.2s ease;
+      cursor: pointer;
+    }
+    tbody tr:hover {
+      background-color: #f8fbfd;
+    }
+    tbody tr.submitted {
+      background-color: #dcfce7 !important;
+      opacity: 0.7;
+    }
+    tbody td {
+      padding: 15px;
+      font-size: 14px;
+      color: #444;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.6);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+    .modal.active {
+      opacity: 1;
+      visibility: visible;
+    }
+    .modal-content {
+      background: #fff;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+      max-width: 900px;
+      width: 90%;
+      display: flex;
+      gap: 30px;
+      flex-direction: column;
+    }
+    .iframe-container {
+      width: 100%;
+      padding-top: 56.25%; /* 16:9 Aspect Ratio */
+      position: relative;
+    }
+    .iframe-container iframe {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 8px;
+    }
+    .review-form {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+    .review-form select,
+    .review-form textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    .review-form textarea {
+      resize: vertical;
+    }
+    .review-buttons {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .btn {
+      padding: 12px 25px;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.2s ease, transform 0.2s ease;
+    }
+    .btn-submit {
+      background-color: #4CAF50;
+      color: #fff;
+    }
+    .btn-submit:hover {
+      background-color: #45a049;
+      transform: translateY(-2px);
+    }
+    .btn-cancel {
+      background-color: #f4f4f4;
+      color: #555;
+    }
+    .btn-cancel:hover {
+      background-color: #e0e0e0;
+      transform: translateY(-2px);
+    }
+    .navigation-buttons {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 20px;
+    }
+    .navigation-buttons .btn {
+      flex-grow: 1;
+      text-align: center;
+    }
+    .error-message {
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: #ef4444;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        z-index: 1001;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+    .error-message.active {
+        opacity: 1;
+        visibility: visible;
+    }
+  </style>
+</head>
+<body>
+  <h2>360 QC Review Dashboard</h2>
+  <div class="filters">
+    <div>
+      <label for="month-filter">Month:</label>
+      <select id="month-filter"></select>
+    </div>
+    <div>
+      <label for="enterprise-filter">Enterprise:</label>
+      <select id="enterprise-filter"></select>
+    </div>
+    <div>
+      <label for="user-filter">User:</label>
+      <select id="user-filter"></select>
+    </div>
+    <div>
+      <label for="product-type-filter">Product Type:</label>
+      <select id="product-type-filter"></select>
+    </div>
+  </div>
+
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th>Spin ID</th>
+          <th>SKU ID</th>
+          <th>Enterprise</th>
+          <th>User</th>
+          <th>Issues</th>
+        </tr>
+      </thead>
+      <tbody id="table-body"></tbody>
+    </table>
+  </div>
+
+  <div id="modal" class="modal">
+    <div class="modal-content">
+      <div class="iframe-container">
+        <iframe id="spin-iframe" frameborder="0" allowfullscreen></iframe>
+      </div>
+      <div class="review-form">
+        <h3>Submit Review for <span id="spin-id-display"></span></h3>
+        <select id="issues-select">
+          <option value="">Select an issue...</option>
+          <option value="Incorrect Spin">Incorrect Spin</option>
+          <option value="Defective Output">Defective Output</option>
+          <option value="Low Quality">Low Quality</option>
+        </select>
+        <textarea id="comment-box" rows="4" placeholder="Add comments here..."></textarea>
+      </div>
+      <div class="review-buttons">
+        <button id="cancel-btn" class="btn btn-cancel">Cancel</button>
+        <button id="submit-btn" class="btn btn-submit">Submit</button>
+      </div>
+      <div class="navigation-buttons">
+        <button id="prev-btn" class="btn btn-cancel" disabled>Previous</button>
+        <button id="next-btn" class="btn btn-submit" disabled>Next</button>
+      </div>
+    </div>
+  </div>
+  <iframe name="hidden_iframe" id="hidden_iframe" style="display: none;"></iframe>
+  <div id="error-message" class="error-message"></div>
+
+  <script>
+    const CSV_URL = 'uploaded:All data - All-Data (2).csv'; // Assuming the CSV is available at this path
+    const GOOGLE_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLScC1-0P3Kq4cQ0J1_s6r3qJ1n8y4zJ8cQy9l5cK4z4K9J7q/formResponse';
+    
+    const elements = {
+      tableBody: document.getElementById('table-body'),
+      modal: document.getElementById('modal'),
+      spinIframe: document.getElementById('spin-iframe'),
+      issuesSelect: document.getElementById('issues-select'),
+      commentBox: document.getElementById('comment-box'),
+      submitBtn: document.getElementById('submit-btn'),
+      cancelBtn: document.getElementById('cancel-btn'),
+      prevBtn: document.getElementById('prev-btn'),
+      nextBtn: document.getElementById('next-btn'),
+      spinIdDisplay: document.getElementById('spin-id-display'),
+      monthFilter: document.getElementById('month-filter'),
+      enterpriseFilter: document.getElementById('enterprise-filter'),
+      userFilter: document.getElementById('user-filter'),
+      productTypeFilter: document.getElementById('product-type-filter'),
+      errorMessage: document.getElementById('error-message'),
+    };
+
+    let allData = [];
+    let filteredData = [];
+
+    const escapeHtmlAttr = (str) => {
+      if (!str) return '';
+      return String(str).replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    };
+
+    const showMessage = (message, isError = true) => {
+        elements.errorMessage.textContent = message;
+        elements.errorMessage.classList.add('active');
+        if (isError) {
+            elements.errorMessage.style.backgroundColor = '#ef4444';
+        } else {
+            elements.errorMessage.style.backgroundColor = '#4CAF50';
+        }
+        setTimeout(() => {
+            elements.errorMessage.classList.remove('active');
+        }, 3000);
+    };
+
+    const fetchCsvData = async () => {
+      try {
+        const response = await fetch(CSV_URL);
+        if (!response.ok) throw new Error('Failed to fetch CSV data. Please check the file path and ensure the file is uploaded correctly.');
+        const text = await response.text();
+        const { data } = Papa.parse(text, { header: true, dynamicTyping: true, skipEmptyLines: true });
+        allData = data.filter(row => row['Spin_id'] && row['Spin_URL']);
+        populateFilters();
+        applyFilters();
+      } catch (error) {
+        showMessage(`Error fetching or parsing CSV: ${error.message}`);
+        console.error('Error fetching or parsing CSV:', error);
+      }
+    };
+
+    const populateFilters = () => {
+      const getUniqueValues = (key) => [...new Set(allData.map(d => d[key]))].sort();
+      const fillSelect = (select, values) => {
+        select.innerHTML = '<option value="">All</option>';
+        values.forEach(value => {
+          if (value) {
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = value;
+            select.appendChild(option);
+          }
+        });
+      };
+      fillSelect(elements.monthFilter, getUniqueValues('Month'));
+      fillSelect(elements.enterpriseFilter, getUniqueValues('Enterprise'));
+      fillSelect(elements.userFilter, getUniqueValues('QC'));
+      fillSelect(elements.productTypeFilter, getUniqueValues('Product_Type'));
+    };
+
+    const applyFilters = () => {
+      const selectedMonth = elements.monthFilter.value;
+      const selectedEnterprise = elements.enterpriseFilter.value;
+      const selectedUser = elements.userFilter.value;
+      const selectedProductType = elements.productTypeFilter.value;
+      
+      filteredData = allData.filter(row => {
+        const monthMatch = !selectedMonth || row['Month'] === selectedMonth;
+        const enterpriseMatch = !selectedEnterprise || row['Enterprise'] === selectedEnterprise;
+        const userMatch = !selectedUser || row['QC'] === selectedUser;
+        const productTypeMatch = !selectedProductType || row['Product_Type'] === selectedProductType;
+        return monthMatch && enterpriseMatch && userMatch && productTypeMatch && !row._submitted;
+      });
+      renderTable(filteredData);
+    };
+
+    const renderTable = (data) => {
+      elements.tableBody.innerHTML = '';
+      if (data.length === 0) {
+        const row = document.createElement('tr');
+        row.innerHTML = `<td colspan="5" style="text-align: center; color: #888;">No pending reviews.</td>`;
+        elements.tableBody.appendChild(row);
+        return;
+      }
+      data.forEach((row, i) => {
+        const tr = document.createElement('tr');
+        tr.dataset.index = i;
+        tr.className = row._submitted ? 'submitted' : '';
+        const combinedIssues = (row['validation_failure_reason'] || '') + ' ' + (row['vdp_validation_failure_reason'] || '');
+        tr.innerHTML = `
+          <td>${escapeHtmlAttr(row['Spin_id'])}</td>
+          <td>${escapeHtmlAttr(row['Sku_id'])}</td>
+          <td>${escapeHtmlAttr(row['Enterprise'])}</td>
+          <td>${escapeHtmlAttr(row['QC'])}</td>
+          <td>${escapeHtmlAttr(combinedIssues.trim())}</td>
+        `;
+        tr.addEventListener('click', () => openModal(i));
+        elements.tableBody.appendChild(tr);
+      });
+    };
+
+    const openModal = (i) => {
+      const row = filteredData[i];
+      if (!row) {
+        closeModal();
+        return;
+      }
+      elements.spinIdDisplay.textContent = row['Spin_id'];
+      elements.spinIframe.src = row['Spin_URL'];
+      elements.issuesSelect.value = '';
+      elements.commentBox.value = '';
+
+      elements.modal.classList.add('active');
+      elements.submitBtn.onclick = () => submitForm(i);
+      
+      elements.prevBtn.disabled = i === 0;
+      elements.nextBtn.disabled = i >= filteredData.length - 1;
+      
+      elements.prevBtn.onclick = () => openModal(i - 1);
+      elements.nextBtn.onclick = () => openModal(i + 1);
+    };
+
+    const closeModal = () => {
+      elements.modal.classList.remove('active');
+      elements.spinIframe.src = '';
+    };
+
+    const submitForm = (i) => {
+      const row = filteredData[i];
+      const commentValue = elements.commentBox.value;
+      const issuesValue = elements.issuesSelect.value;
+      if (!issuesValue) {
+        showMessage('Please select an issue.');
+        return;
+      }
+      
+      const form = document.createElement('form');
+      form.action = GOOGLE_FORM_URL;
+      form.method = 'POST';
+      form.target = "hidden_iframe";
+      form.style.display = "none";
+      form.innerHTML = `
+        <input name="entry.1125049159" value="${escapeHtmlAttr(row['Spin_id'])}">
+        <input name="entry.703277665" value="${escapeHtmlAttr(row['Sku_id'])}">
+        <input name="entry.1815472287" value="${escapeHtmlAttr(row['Enterprise'])}">
+        <input name="entry.582537694" value="${escapeHtmlAttr(row['QC'])}">
+        <input name="entry.575622617" value="${escapeHtmlAttr(issuesValue)}">
+        <input name="entry.1751143375" value="${escapeHtmlAttr(commentValue)}">
+        <input name="entry.1372347436" value="${escapeHtmlAttr(row['Spin_URL'])}">
+      `;
+      const iframe = document.getElementsByName('hidden_iframe')[0];
+      iframe.onload = () => {
+        filteredData[i]._submitted = true;
+        renderTable(filteredData);
+        closeModal();
+        const nextIndex = filteredData.findIndex((r, idx) => idx > i && !r._submitted);
+        if (nextIndex !== -1) setTimeout(() => openModal(nextIndex), 300);
+      };
+      document.body.appendChild(form);
+      form.submit();
+      document.body.removeChild(form);
+    };
+
+    elements.cancelBtn.addEventListener('click', closeModal);
+    elements.monthFilter.addEventListener('change', applyFilters);
+    elements.enterpriseFilter.addEventListener('change', applyFilters);
+    elements.userFilter.addEventListener('change', applyFilters);
+    elements.productTypeFilter.addEventListener('change', applyFilters);
+
+    fetchCsvData();
+  </script>
+</body>
+</html>
