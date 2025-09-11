@@ -6,11 +6,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" href="https://spyne-prod-ai.s3.us-east-1.amazonaws.com/ai-dataset/2025/favicon.ico" type="image/x-icon" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
   <style>
+    :root {
+      --primary-color: #007BFF;
+      --secondary-color: #6c757d;
+      --background-color: #f8f9fa;
+      --card-bg-color: #ffffff;
+      --text-color: #212529;
+      --border-color: #dee2e6;
+      --shadow-light: rgba(0, 0, 0, 0.05);
+    }
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #f4f7fa;
-      color: #333;
+      background: var(--background-color);
+      color: var(--text-color);
       padding: 20px;
       margin: 0;
       display: flex;
@@ -18,71 +28,108 @@
       align-items: center;
     }
     h2 {
-      font-weight: 700;
-      color: #222;
-      margin-bottom: 20px;
+      font-weight: 600;
+      color: var(--text-color);
+      margin-bottom: 24px;
       text-align: center;
-      letter-spacing: 1.2px;
+      letter-spacing: 1.5px;
+      font-size: 2rem;
+    }
+    .container {
+      width: 100%;
+      max-width: 1000px;
+      padding: 0 1rem;
+    }
+    .card {
+      background-color: var(--card-bg-color);
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px var(--shadow-light);
+      margin-bottom: 2rem;
     }
     .filters {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      align-items: flex-end;
-      gap: 15px;
-      margin-bottom: 30px;
-      background-color: #fff;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-      width: 100%;
-      max-width: 900px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.5rem;
+      align-items: center;
+      margin-bottom: 2rem;
     }
     .filters > div {
       display: flex;
-      align-items: center;
-      gap: 10px;
+      flex-direction: column;
+      gap: 0.5rem;
     }
     .filters label {
-      font-weight: 600;
-      color: #555;
-      white-space: nowrap;
+      font-weight: 500;
+      color: var(--secondary-color);
     }
-    .filters select {
-      padding: 8px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      font-size: 14px;
-      min-width: 150px;
-      cursor: pointer;
-    }
-    .viewer-container {
-      width: 100%;
-      max-width: 900px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 20px;
-      background-color: #fff;
-      padding: 20px;
+    .filters select,
+    .filters .checkbox-container {
+      padding: 10px 12px;
+      border: 1px solid var(--border-color);
       border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      font-size: 0.9rem;
+      min-width: 100%;
+      background-color: #fff;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .filters select:focus {
+      outline: none;
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+    }
+    .filters .checkbox-container {
+      background-color: transparent;
+      border: none;
+      padding: 0;
+      min-width: auto;
+    }
+    .report-container h3 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+      color: var(--text-color);
+    }
+    .report-container table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    .report-container th, .report-container td {
+      border: 1px solid var(--border-color);
+      padding: 1rem;
+      text-align: center;
+    }
+    .report-container thead th {
+      background-color: #e9ecef;
+      font-weight: 600;
+      color: var(--text-color);
+    }
+    .report-container tbody tr:nth-child(odd) {
+      background-color: #f8f9fa;
+    }
+    .report-container tbody tr:hover {
+      background-color: #e9ecef;
+      transition: background-color 0.3s ease;
     }
     .viewer-details {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 15px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.5rem;
       width: 100%;
-      padding-bottom: 15px;
-      border-bottom: 1px solid #eee;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 1.5rem;
     }
     .viewer-details div {
-      font-size: 14px;
-      color: #555;
+      font-size: 0.9rem;
+      color: var(--secondary-color);
     }
     .viewer-details strong {
-      color: #222;
+      color: var(--text-color);
     }
     .iframe-container {
       width: 100%;
@@ -90,6 +137,7 @@
       position: relative;
       border-radius: 8px;
       overflow: hidden;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     }
     .iframe-container iframe {
       position: absolute;
@@ -102,105 +150,129 @@
     .navigation-buttons {
       display: flex;
       justify-content: center;
-      gap: 20px;
+      gap: 1.5rem;
       width: 100%;
+      margin-top: 1.5rem;
     }
     .btn {
-      padding: 12px 25px;
+      padding: 12px 28px;
       border: none;
-      border-radius: 6px;
+      border-radius: 8px;
       font-weight: 600;
       cursor: pointer;
-      transition: background-color 0.2s ease, transform 0.2s ease;
+      transition: all 0.2s ease;
       min-width: 120px;
       text-align: center;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
     }
     .btn-primary {
-      background-color: #4CAF50;
+      background-color: var(--primary-color);
       color: #fff;
     }
     .btn-primary:hover:not(:disabled) {
-      background-color: #45a049;
+      background-color: #0056b3;
       transform: translateY(-2px);
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
     }
     .btn-secondary {
-      background-color: #f4f4f4;
-      color: #555;
+      background-color: var(--secondary-color);
+      color: #fff;
     }
     .btn-secondary:hover:not(:disabled) {
-      background-color: #e0e0e0;
+      background-color: #5a6268;
       transform: translateY(-2px);
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
     }
     .btn:disabled {
-      opacity: 0.5;
+      opacity: 0.6;
       cursor: not-allowed;
+      box-shadow: none;
+      transform: none;
     }
-    .error-message {
-        position: fixed;
-        top: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        background-color: #ef4444;
-        color: white;
-        padding: 12px 24px;
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        z-index: 1001;
-        opacity: 0;
-        visibility: hidden;
-        transition: opacity 0.3s ease, visibility 0.3s ease;
+    .message {
+      text-align: center;
+      padding: 1.5rem;
+      font-size: 1rem;
+      font-weight: 500;
+      border-radius: 8px;
+      margin: 1.5rem 0;
+      display: none;
     }
-    .error-message.active {
-        opacity: 1;
-        visibility: visible;
+    .message.error {
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    .message.info {
+      background-color: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
     }
     .no-results-message {
       text-align: center;
-      color: #777;
-      margin-top: 20px;
+      color: #6c757d;
+      margin-top: 1.5rem;
       display: none;
-      font-weight: 600;
+      font-weight: 500;
+      font-style: italic;
+    }
+    .checkbox-container {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
     }
   </style>
 </head>
 <body>
-  <h2>360 Validation Failed</h2>
-  <div class="filters">
-    <div>
-      <label for="month-filter">Month:</label>
-      <select id="month-filter"></select>
+  <div class="container">
+    <h2>360 Validation Failed</h2>
+    <div class="card">
+      <div class="filters">
+        <div>
+          <label for="month-filter">Month:</label>
+          <select id="month-filter"></select>
+        </div>
+        <div>
+          <label for="enterprise-filter">Enterprise:</label>
+          <select id="enterprise-filter"></select>
+        </div>
+        <div>
+          <label for="product-type-filter">Product Type:</label>
+          <select id="product-type-filter"></select>
+        </div>
+      </div>
     </div>
-    <div>
-      <label for="enterprise-filter">Enterprise:</label>
-      <select id="enterprise-filter"></select>
-    </div>
-    <div>
-      <label for="product-type-filter">Product Type:</label>
-      <select id="product-type-filter"></select>
-    </div>
-  </div>
 
-  <div class="viewer-container">
-    <div class="viewer-details" id="viewer-details">
-      <!-- Spin details will be injected here -->
+    <div class="card report-container">
+      <h3>Validation Failure Report</h3>
+      <div id="report-table-container"></div>
+      <div id="no-report-data" class="no-results-message">
+        No validation failure data found to display.
+      </div>
     </div>
-    <div class="iframe-container">
-      <iframe id="spin-iframe" frameborder="0" allowfullscreen></iframe>
-    </div>
-    <div class="navigation-buttons" id="navigation-buttons">
-      <button id="prev-btn" class="btn btn-secondary">Previous</button>
-      <button id="next-btn" class="btn btn-primary">Next</button>
-    </div>
-    <div id="no-results-message" class="no-results-message">
-      No spins found with validation errors for the current filters. Please try a different selection.
-    </div>
-  </div>
 
-  <div id="error-message" class="error-message"></div>
+    <div class="card viewer-container">
+      <div class="viewer-details" id="viewer-details">
+        <!-- Spin details will be injected here -->
+      </div>
+      <div class="iframe-container">
+        <iframe id="spin-iframe" frameborder="0" allowfullscreen></iframe>
+      </div>
+      <div class="navigation-buttons" id="navigation-buttons">
+        <button id="prev-btn" class="btn btn-secondary">Previous</button>
+        <button id="next-btn" class="btn btn-primary">Next</button>
+      </div>
+      <div id="no-results-message" class="no-results-message">
+        No spins found with validation errors for the current filters. Please try a different selection.
+      </div>
+    </div>
+
+    <div id="error-message" class="message error"></div>
+  </div>
 
   <script>
     const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTmm6um2dDueAholFhs2olel5wv2mqH9f1jCAfdL8Qi76mzqbTfzu7OYRea5PwSJP0eD0RLuF6XOkTy/pub?gid=0&single=true&output=csv';
-    
+
     const elements = {
       spinIframe: document.getElementById('spin-iframe'),
       prevBtn: document.getElementById('prev-btn'),
@@ -212,11 +284,15 @@
       viewerDetails: document.getElementById('viewer-details'),
       navigationButtons: document.getElementById('navigation-buttons'),
       noResultsMessage: document.getElementById('no-results-message'),
+      reportTableContainer: document.getElementById('report-table-container'),
+      noReportData: document.getElementById('no-report-data'),
     };
 
     let allData = [];
+    let reportData = [];
     let filteredData = [];
     let currentIndex = 0;
+    let months = [];
 
     const escapeHtmlAttr = (str) => {
       if (!str) return '';
@@ -224,48 +300,103 @@
     };
 
     const showMessage = (message, isError = true) => {
-        elements.errorMessage.textContent = message;
-        elements.errorMessage.classList.add('active');
-        if (isError) {
-            elements.errorMessage.style.backgroundColor = '#ef4444';
-        } else {
-            elements.errorMessage.style.backgroundColor = '#4CAF50';
-        }
-        setTimeout(() => {
-            elements.errorMessage.classList.remove('active');
-        }, 3000);
+      elements.errorMessage.textContent = message;
+      elements.errorMessage.classList.remove('info', 'error');
+      elements.errorMessage.classList.add(isError ? 'error' : 'info');
+      elements.errorMessage.style.display = 'block';
+      setTimeout(() => {
+        elements.errorMessage.style.display = 'none';
+      }, 3000);
     };
 
-    const fetchCsvData = async () => {
+    const fetchData = async () => {
       try {
-        const response = await fetch(CSV_URL);
-        if (!response.ok) throw new Error('Failed to fetch CSV data. Please check the URL and ensure the file is public.');
-        const text = await response.text();
-        const { data } = Papa.parse(text, { header: true, dynamicTyping: true, skipEmptyLines: true });
-        // Initially filter to only include data with validation errors
-        allData = data.filter(row => row['Spin_id'] && row['Spin_URL'] && (row['validation_failure_reason'] || row['vdp_validation_failure_reason']));
+        const spinsResponse = await fetch(CSV_URL);
+        if (!spinsResponse.ok) {
+           console.log('Failed to fetch spin data:', await spinsResponse.text());
+           throw new Error('Failed to fetch spin data.');
+        }
+        const spinText = await spinsResponse.text();
+        const { data: spinData } = Papa.parse(spinText, { header: true, dynamicTyping: true, skipEmptyLines: true });
+        allData = spinData.filter(row => row['Spin_id'] && row['Spin_URL'] || row['VDP_URL']);
+
+        reportData = calculateReportData(allData);
+
         populateFilters();
         applyFilters();
+        renderReport();
       } catch (error) {
-        showMessage(`Error fetching or parsing CSV: ${error.message}`);
+        showMessage(`Error fetching or parsing data: ${error.message}`);
         console.error('Error fetching or parsing CSV:', error);
       }
     };
 
+    const calculateReportData = (data) => {
+      const monthlyData = data.reduce((acc, row) => {
+        const month = row['Month'];
+        if (!acc[month]) {
+          acc[month] = {
+            totalSpins: 0,
+            totalFailed: 0,
+          };
+        }
+
+        acc[month].totalSpins++;
+        if (row['validation_failure_reason'] || row['vdp_validation_failure_reason']) {
+          acc[month].totalFailed++;
+        }
+        return acc;
+      }, {});
+
+      // Get the month order and find the current month
+      const monthOrder = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+      const currentMonthName = monthOrder[new Date().getMonth()];
+      const currentMonthIndex = monthOrder.indexOf(currentMonthName);
+      
+      // Get the last four months, handling year-end wrap-around
+      const monthsToShow = [];
+      for (let i = 0; i < 4; i++) {
+          let monthIndex = (currentMonthIndex - i + 12) % 12;
+          monthsToShow.push(monthOrder[monthIndex]);
+      }
+      monthsToShow.reverse();
+
+      // Convert the aggregated data into the desired table format and filter for the last four months
+      return Object.keys(monthlyData)
+          .filter(month => monthsToShow.includes(month))
+          .map(month => {
+              const item = monthlyData[month];
+              const percentage = item.totalSpins > 0 ? ((item.totalFailed / item.totalSpins) * 100).toFixed(2) : 0;
+              return {
+                  Month_Name: month,
+                  Percentage: percentage,
+              };
+          })
+          .sort((a, b) => monthOrder.indexOf(a.Month_Name) - monthOrder.indexOf(b.Month_Name));
+    };
+
     const populateFilters = () => {
-      const getUniqueValues = (key) => [...new Set(allData.map(d => d[key]))].sort();
+      const getUniqueValues = (key) => {
+        const uniqueValues = [...new Set(allData.map(d => d[key]))].filter(Boolean).sort();
+        if (key === 'Month') {
+          const monthOrder = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+          return uniqueValues.sort((a, b) => monthOrder.indexOf(a) - monthOrder.indexOf(b));
+        }
+        return uniqueValues;
+      };
+
       const fillSelect = (select, values) => {
         select.innerHTML = '<option value="">All</option>';
         values.forEach(value => {
-          if (value) {
-            const option = document.createElement('option');
-            option.value = value;
-            option.textContent = value;
-            select.appendChild(option);
-          }
+          const option = document.createElement('option');
+          option.value = value;
+          option.textContent = value;
+          select.appendChild(option);
         });
       };
-      fillSelect(elements.monthFilter, getUniqueValues('Month'));
+      
+      months = getUniqueValues('Month');
+      fillSelect(elements.monthFilter, months);
       fillSelect(elements.enterpriseFilter, getUniqueValues('Enterprise'));
       fillSelect(elements.productTypeFilter, getUniqueValues('Product_Type'));
     };
@@ -274,22 +405,54 @@
       const selectedMonth = elements.monthFilter.value;
       const selectedEnterprise = elements.enterpriseFilter.value;
       const selectedProductType = elements.productTypeFilter.value;
-      
+
       filteredData = allData.filter(row => {
         const monthMatch = !selectedMonth || row['Month'] === selectedMonth;
         const enterpriseMatch = !selectedEnterprise || row['Enterprise'] === selectedEnterprise;
         const productTypeMatch = !selectedProductType || row['Product_Type'] === selectedProductType;
+
         return monthMatch && enterpriseMatch && productTypeMatch;
       });
       currentIndex = 0;
       renderSpin();
     };
 
+    const renderReport = () => {
+      if (reportData.length === 0) {
+        elements.reportTableContainer.style.display = 'none';
+        elements.noReportData.style.display = 'block';
+        return;
+      }
+      
+      elements.reportTableContainer.style.display = 'block';
+      elements.noReportData.style.display = 'none';
+
+      let tableHTML = '<table>';
+      tableHTML += '<thead><tr><th>Month</th><th>Validation Error %</th></tr></thead><tbody>';
+      
+      reportData.forEach(row => {
+        tableHTML += `<tr>`;
+        tableHTML += `<td>${escapeHtmlAttr(row['Month_Name'])}</td>`;
+        tableHTML += `<td>${escapeHtmlAttr(row['Percentage'])}%</td>`;
+        tableHTML += `</tr>`;
+      });
+      
+      tableHTML += '</tbody></table>';
+      elements.reportTableContainer.innerHTML = tableHTML;
+    };
+
     const renderSpin = () => {
       if (filteredData.length > 0) {
         const currentItem = filteredData[currentIndex];
         const validationError = currentItem['validation_failure_reason'] || currentItem['vdp_validation_failure_reason'] || 'No validation errors';
-        elements.spinIframe.src = currentItem['Spin_URL'];
+
+        // Use VDP_URL if it's an image-only validation failure, otherwise use Spin_URL
+        if (currentItem['Product_Type'] === 'images only' && currentItem['vdp_validation_failure_reason'] && currentItem['VDP_URL']) {
+            elements.spinIframe.src = currentItem['VDP_URL'];
+        } else {
+            elements.spinIframe.src = currentItem['Spin_URL'];
+        }
+
         elements.viewerDetails.innerHTML = `
           <div><strong>Enterprise:</strong> ${escapeHtmlAttr(currentItem['Enterprise'])}</div>
           <div><strong>SKU ID:</strong> ${escapeHtmlAttr(currentItem['Sku_id'])}</div>
@@ -324,7 +487,7 @@
     elements.enterpriseFilter.addEventListener('change', applyFilters);
     elements.productTypeFilter.addEventListener('change', applyFilters);
 
-    fetchCsvData();
+    fetchData();
   </script>
 </body>
 </html>
