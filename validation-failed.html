@@ -240,6 +240,40 @@
       align-items: center;
       gap: 0.5rem;
     }
+    .scrollable-table {
+      max-height: 250px; /* Adjust height as needed */
+      overflow-y: auto;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+    }
+    .report-container th.sortable {
+      cursor: pointer;
+      position: relative;
+    }
+    .report-container th.sortable::after {
+      content: '';
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 0;
+      height: 0;
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-top: 5px solid var(--secondary-color);
+      opacity: 0.3;
+      transition: opacity 0.2s ease;
+    }
+    .report-container th.sortable.asc::after {
+      border-top: none;
+      border-bottom: 5px solid var(--primary-color);
+      opacity: 1;
+    }
+    .report-container th.sortable.desc::after {
+      border-bottom: none;
+      border-top: 5px solid var(--primary-color);
+      opacity: 1;
+    }
   </style>
 </head>
 <body>
@@ -259,14 +293,26 @@
           <label for="product-type-filter">Product Type:</label>
           <select id="product-type-filter"></select>
         </div>
+        <div>
+          <label for="reason-filter">Reason:</label>
+          <select id="reason-filter"></select>
+        </div>
       </div>
     </div>
 
     <div class="card report-container">
       <h3>Validation Failure Report</h3>
-      <div id="report-table-container"></div>
-      <div id="no-report-data" class="no-results-message">
+      <div id="monthly-report-table-container"></div>
+      <div id="no-monthly-report-data" class="no-results-message">
         No validation failure data found to display.
+      </div>
+    </div>
+
+    <div class="card report-container">
+      <h3>Validation Reason Report</h3>
+      <div id="reason-report-table-container" class="scrollable-table"></div>
+      <div id="no-reason-report-data" class="no-results-message">
+        No validation failure reason data found to display.
       </div>
     </div>
 
@@ -299,19 +345,25 @@
       monthFilter: document.getElementById('month-filter'),
       enterpriseFilter: document.getElementById('enterprise-filter'),
       productTypeFilter: document.getElementById('product-type-filter'),
+      reasonFilter: document.getElementById('reason-filter'),
       errorMessage: document.getElementById('error-message'),
       viewerDetails: document.getElementById('viewer-details'),
       navigationButtons: document.getElementById('navigation-buttons'),
       noResultsMessage: document.getElementById('no-results-message'),
-      reportTableContainer: document.getElementById('report-table-container'),
-      noReportData: document.getElementById('no-report-data'),
+      monthlyReportTableContainer: document.getElementById('monthly-report-table-container'),
+      noMonthlyReportData: document.getElementById('no-monthly-report-data'),
+      reasonReportTableContainer: document.getElementById('reason-report-table-container'),
+      noReasonReportData: document.getElementById('no-reason-report-data'),
     };
 
     let allData = [];
-    let reportData = {};
+    let monthlyReportData = {};
+    let reasonReportData = {};
     let filteredData = [];
     let currentIndex = 0;
     let months = [];
+    let currentSortColumn = null;
+    let sortDirection = 'asc';
 
     const escapeHtmlAttr = (str) => {
       if (!str) return '';
@@ -328,29 +380,47 @@
       }, 3000);
     };
 
+    const getRecentMonths = (allMonths) => {
+      const monthOrder = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+      // Hardcoded based on current date (September 13, 2025)
+      const currentMonth = "September"; 
+      const currentMonthIndex = monthOrder.indexOf(currentMonth);
+      if (currentMonthIndex === -1) return [];
+
+      const recentMonths = [];
+      for (let i = 0; i < 4; i++) {
+        const monthIndex = (currentMonthIndex - i + 12) % 12;
+        recentMonths.push(monthOrder[monthIndex]);
+      }
+      
+      return recentMonths.filter(month => allMonths.includes(month));
+    };
+
     const fetchData = async () => {
       try {
         const spinsResponse = await fetch(CSV_URL);
         if (!spinsResponse.ok) {
-           console.log('Failed to fetch spin data:', await spinsResponse.text());
-           throw new Error('Failed to fetch spin data.');
+            console.log('Failed to fetch spin data:', await spinsResponse.text());
+            throw new Error('Failed to fetch spin data.');
         }
         const spinText = await spinsResponse.text();
         const { data: spinData } = Papa.parse(spinText, { header: true, dynamicTyping: true, skipEmptyLines: true });
         allData = spinData.filter(row => row['Spin_id'] && (row['Spin_URL'] || row['VDP_URL']));
 
-        reportData = calculateReportData(allData);
+        monthlyReportData = calculateMonthlyReportData(allData);
+        reasonReportData = calculateReasonReportData(allData);
 
         populateFilters();
         applyFilters();
-        renderReport();
+        renderMonthlyReport();
+        renderReasonReport();
       } catch (error) {
         showMessage(`Error fetching or parsing data. Check your network connection. Error: ${error.message}`);
         console.error('Full fetch error details:', error);
       }
     };
 
-    const calculateReportData = (data) => {
+    const calculateMonthlyReportData = (data) => {
       const monthlyData = data.reduce((acc, row) => {
         const month = row['Month'];
         if (!month) return acc;
@@ -399,15 +469,52 @@
       
       return { data: report, months: sortedMonths };
     };
+    
+    const calculateReasonReportData = (data) => {
+      const reasonData = {};
+      const uniqueMonths = [...new Set(data.map(row => row['Month']))].filter(Boolean);
+      const monthOrder = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+      const sortedMonths = uniqueMonths.sort((a, b) => monthOrder.indexOf(b) - monthOrder.indexOf(a));
+
+      data.forEach(row => {
+        const reasonString = row['validation_failure_reason'] || row['vdp_validation_failure_reason'];
+        const month = row['Month'];
+        if (reasonString && month) {
+          // Split by comma and slash, then trim whitespace
+          const reasons = reasonString.split(/[\/,]/).map(r => r.trim()).filter(r => r.length > 0);
+          
+          reasons.forEach(reason => {
+            if (!reasonData[reason]) {
+              reasonData[reason] = {};
+            }
+            reasonData[reason][month] = (reasonData[reason][month] || 0) + 1;
+          });
+        }
+      });
+      return { data: reasonData, months: sortedMonths };
+    };
 
     const populateFilters = () => {
       const getUniqueValues = (key) => {
         const uniqueValues = [...new Set(allData.map(d => d[key]))].filter(Boolean).sort();
         if (key === 'Month') {
           const monthOrder = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-          return uniqueValues.sort((a, b) => monthOrder.indexOf(a) - monthOrder.indexOf(b));
+          return uniqueValues.sort((a, b) => monthOrder.indexOf(b) - monthOrder.indexOf(a));
         }
         return uniqueValues;
+      };
+
+      const getUniqueReasonsWithFailures = () => {
+          const reasons = new Set();
+          allData.forEach(row => {
+              const reasonString = row['validation_failure_reason'] || row['vdp_validation_failure_reason'];
+              if (reasonString) {
+                  reasonString.split(/[\/,]/).map(r => r.trim()).filter(r => r.length > 0).forEach(reason => {
+                      reasons.add(reason);
+                  });
+              }
+          });
+          return [...reasons].sort();
       };
       
       const getUniqueEnterprisesWithFailures = () => {
@@ -434,45 +541,53 @@
       fillSelect(elements.monthFilter, months);
       fillSelect(elements.enterpriseFilter, getUniqueEnterprisesWithFailures());
       fillSelect(elements.productTypeFilter, getUniqueValues('Product_Type'));
+      fillSelect(elements.reasonFilter, getUniqueReasonsWithFailures());
     };
 
     const applyFilters = () => {
       const selectedMonth = elements.monthFilter.value;
       const selectedEnterprise = elements.enterpriseFilter.value;
       const selectedProductType = elements.productTypeFilter.value;
+      const selectedReason = elements.reasonFilter.value;
       
       filteredData = allData.filter(row => {
         const monthMatch = !selectedMonth || row['Month'] === selectedMonth;
         const enterpriseMatch = !selectedEnterprise || row['Enterprise'] === selectedEnterprise;
         const productTypeMatch = !selectedProductType || row['Product_Type'] === selectedProductType;
+        const reasonString = row['validation_failure_reason'] || row['vdp_validation_failure_reason'];
+        const reasonMatch = !selectedReason || (reasonString && reasonString.includes(selectedReason));
         
-        return monthMatch && enterpriseMatch && productTypeMatch && (row['validation_failure_reason'] || row['vdp_validation_failure_reason']);
+        return monthMatch && enterpriseMatch && productTypeMatch && reasonMatch && (row['validation_failure_reason'] || row['vdp_validation_failure_reason']);
       });
       currentIndex = 0;
       renderSpin();
     };
 
-    const renderReport = () => {
-      if (!reportData.months || reportData.months.length === 0) {
-        elements.reportTableContainer.style.display = 'none';
-        elements.noReportData.style.display = 'block';
+    const renderMonthlyReport = () => {
+      const monthsToDisplay = getRecentMonths(monthlyReportData.months);
+      
+      if (monthsToDisplay.length === 0) {
+        elements.monthlyReportTableContainer.style.display = 'none';
+        elements.noMonthlyReportData.style.display = 'block';
         return;
       }
       
-      elements.reportTableContainer.style.display = 'block';
-      elements.noReportData.style.display = 'none';
+      elements.monthlyReportTableContainer.style.display = 'block';
+      elements.noMonthlyReportData.style.display = 'none';
       
       let tableHTML = '<table>';
       tableHTML += '<thead><tr><th></th>';
-      reportData.months.forEach(month => {
+      monthsToDisplay.forEach(month => {
         tableHTML += `<th>${escapeHtmlAttr(month)}</th>`;
       });
       tableHTML += '</tr></thead><tbody>';
       
-      for (const rowLabel in reportData.data) {
+      for (const rowLabel in monthlyReportData.data) {
         tableHTML += `<tr>`;
         tableHTML += `<td><strong>${escapeHtmlAttr(rowLabel)}</strong></td>`;
-        reportData.data[rowLabel].forEach(value => {
+        monthsToDisplay.forEach(month => {
+          const monthIndex = monthlyReportData.months.indexOf(month);
+          const value = monthlyReportData.data[rowLabel][monthIndex];
           let displayValue = value;
           if (rowLabel.includes('%')) {
             displayValue += '%';
@@ -483,7 +598,83 @@
       }
       
       tableHTML += '</tbody></table>';
-      elements.reportTableContainer.innerHTML = tableHTML;
+      elements.monthlyReportTableContainer.innerHTML = tableHTML;
+    };
+    
+    const renderReasonReport = () => {
+      const selectedMonth = elements.monthFilter.value;
+      const allReasons = Object.keys(reasonReportData.data);
+      
+      if (allReasons.length === 0) {
+        elements.reasonReportTableContainer.style.display = 'none';
+        elements.noReasonReportData.style.display = 'block';
+        return;
+      }
+      
+      elements.reasonReportTableContainer.style.display = 'block';
+      elements.noReasonReportData.style.display = 'none';
+
+      let monthsToDisplay = selectedMonth ? [selectedMonth] : getRecentMonths(reasonReportData.months);
+      
+      // Sort the reasons based on the current sort column and direction
+      const sortedReasons = [...allReasons];
+      if (currentSortColumn) {
+        sortedReasons.sort((a, b) => {
+          const aCount = reasonReportData.data[a]?.[currentSortColumn] || 0;
+          const bCount = reasonReportData.data[b]?.[currentSortColumn] || 0;
+          return sortDirection === 'asc' ? aCount - bCount : bCount - aCount;
+        });
+      } else {
+        // Default sort by total count if no column is clicked
+        sortedReasons.sort((a, b) => {
+            const aTotal = monthsToDisplay.reduce((sum, month) => sum + (reasonReportData.data[a]?.[month] || 0), 0);
+            const bTotal = monthsToDisplay.reduce((sum, month) => sum + (reasonReportData.data[b]?.[month] || 0), 0);
+            return bTotal - aTotal;
+        });
+      }
+      
+      let tableHTML = '<table>';
+      tableHTML += '<thead><tr><th>Reason</th>';
+      monthsToDisplay.forEach(month => {
+        const sortClass = currentSortColumn === month ? (sortDirection === 'asc' ? 'asc' : 'desc') : '';
+        tableHTML += `<th class="sortable ${sortClass}" data-month="${escapeHtmlAttr(month)}">${escapeHtmlAttr(month)}</th>`;
+      });
+      if (!selectedMonth) {
+          tableHTML += `<th>Total</th>`;
+      }
+      tableHTML += '</tr></thead><tbody>';
+      
+      sortedReasons.forEach(reason => {
+        tableHTML += `<tr>`;
+        tableHTML += `<td>${escapeHtmlAttr(reason)}</td>`;
+        let totalCount = 0;
+        monthsToDisplay.forEach(month => {
+          const count = reasonReportData.data[reason]?.[month] || 0;
+          tableHTML += `<td>${escapeHtmlAttr(count)}</td>`;
+          totalCount += count;
+        });
+        if (!selectedMonth) {
+            tableHTML += `<td><strong>${escapeHtmlAttr(totalCount)}</strong></td>`;
+        }
+        tableHTML += `</tr>`;
+      });
+      
+      tableHTML += '</tbody></table>';
+      elements.reasonReportTableContainer.innerHTML = tableHTML;
+    
+      // Add click listeners to the new table headers
+      elements.reasonReportTableContainer.querySelectorAll('th.sortable').forEach(header => {
+        header.addEventListener('click', (event) => {
+          const month = event.target.dataset.month;
+          if (currentSortColumn === month) {
+            sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+          } else {
+            currentSortColumn = month;
+            sortDirection = 'asc';
+          }
+          renderReasonReport();
+        });
+      });
     };
 
     const renderSpin = () => {
@@ -528,9 +719,15 @@
 
     elements.prevBtn.addEventListener('click', () => navigate(-1));
     elements.nextBtn.addEventListener('click', () => navigate(1));
-    elements.monthFilter.addEventListener('change', applyFilters);
+    elements.monthFilter.addEventListener('change', () => {
+      applyFilters();
+      currentSortColumn = null;
+      sortDirection = 'asc';
+      renderReasonReport();
+    });
     elements.enterpriseFilter.addEventListener('change', applyFilters);
     elements.productTypeFilter.addEventListener('change', applyFilters);
+    elements.reasonFilter.addEventListener('change', applyFilters);
 
     fetchData();
     
