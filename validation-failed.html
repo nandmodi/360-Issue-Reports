@@ -35,6 +35,12 @@
       letter-spacing: 1.5px;
       font-size: 2rem;
     }
+    @media (max-width: 768px) {
+        h2 {
+            font-size: 1.5rem;
+            margin-bottom: 16px;
+        }
+    }
     .container {
       width: 100%;
       max-width: 1000px;
@@ -53,6 +59,12 @@
       gap: 1.5rem;
       align-items: center;
       margin-bottom: 2rem;
+    }
+    @media (max-width: 768px) {
+        .filters {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
     }
     .filters > div {
       display: flex;
@@ -97,6 +109,7 @@
       width: 100%;
       border-collapse: collapse;
       font-size: 0.9rem;
+      overflow-x: auto;
     }
     .report-container th, .report-container td {
       border: 1px solid var(--border-color);
@@ -165,6 +178,12 @@
       text-align: center;
       box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
     }
+    @media (max-width: 768px) {
+        .btn {
+            min-width: 100px;
+            padding: 10px 20px;
+        }
+    }
     .btn-primary {
       background-color: var(--primary-color);
       color: #fff;
@@ -217,9 +236,9 @@
       font-style: italic;
     }
     .checkbox-container {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
     }
   </style>
 </head>
@@ -289,7 +308,7 @@
     };
 
     let allData = [];
-    let reportData = [];
+    let reportData = {};
     let filteredData = [];
     let currentIndex = 0;
     let months = [];
@@ -318,7 +337,7 @@
         }
         const spinText = await spinsResponse.text();
         const { data: spinData } = Papa.parse(spinText, { header: true, dynamicTyping: true, skipEmptyLines: true });
-        allData = spinData.filter(row => row['Spin_id'] && row['Spin_URL'] || row['VDP_URL']);
+        allData = spinData.filter(row => row['Spin_id'] && (row['Spin_URL'] || row['VDP_URL']));
 
         reportData = calculateReportData(allData);
 
@@ -334,45 +353,51 @@
     const calculateReportData = (data) => {
       const monthlyData = data.reduce((acc, row) => {
         const month = row['Month'];
+        if (!month) return acc;
+
         if (!acc[month]) {
           acc[month] = {
-            totalSpins: 0,
-            totalFailed: 0,
+            imageSpins: 0,
+            videoSpins: 0,
+            imageFailed: 0,
+            videoFailed: 0,
           };
         }
 
-        acc[month].totalSpins++;
-        if (row['validation_failure_reason'] || row['vdp_validation_failure_reason']) {
-          acc[month].totalFailed++;
+        const isImage = row['Product_Type'] && row['Product_Type'].toLowerCase() === 'image';
+        const hasVdpFailure = !!row['vdp_validation_failure_reason'];
+        const hasStandardFailure = !!row['validation_failure_reason'];
+
+        if (isImage) {
+          acc[month].imageSpins++;
+          if (hasVdpFailure) acc[month].imageFailed++;
+        } else {
+          acc[month].videoSpins++;
+          if (hasStandardFailure) acc[month].videoFailed++;
         }
         return acc;
       }, {});
-
-      // Get the month order and find the current month
-      const monthOrder = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-      const currentMonthName = monthOrder[new Date().getMonth()];
-      const currentMonthIndex = monthOrder.indexOf(currentMonthName);
       
-      // Get the last four months, handling year-end wrap-around
-      const monthsToShow = [];
-      for (let i = 0; i < 4; i++) {
-          let monthIndex = (currentMonthIndex - i + 12) % 12;
-          monthsToShow.push(monthOrder[monthIndex]);
-      }
-      monthsToShow.reverse();
+      const monthlyReport = Object.keys(monthlyData).map(month => {
+        const item = monthlyData[month];
+        return {
+          month,
+          imagePercentage: item.imageSpins > 0 ? ((item.imageFailed / item.imageSpins) * 100) : 0,
+          videoPercentage: item.videoSpins > 0 ? ((item.videoFailed / item.videoSpins) * 100) : 0,
+        };
+      });
 
-      // Convert the aggregated data into the desired table format and filter for the last four months
-      return Object.keys(monthlyData)
-          .filter(month => monthsToShow.includes(month))
-          .map(month => {
-              const item = monthlyData[month];
-              const percentage = item.totalSpins > 0 ? ((item.totalFailed / item.totalSpins) * 100).toFixed(2) : 0;
-              return {
-                  Month_Name: month,
-                  Percentage: percentage,
-              };
-          })
-          .sort((a, b) => monthOrder.indexOf(a.Month_Name) - monthOrder.indexOf(b.Month_Name));
+      // Sort by imagePercentage in descending order
+      monthlyReport.sort((a, b) => b.imagePercentage - a.imagePercentage);
+      
+      const sortedMonths = monthlyReport.map(item => item.month);
+      
+      const report = {
+        'Image Validation Error %': monthlyReport.map(item => item.imagePercentage.toFixed(2)),
+        'Video Validation Error %': monthlyReport.map(item => item.videoPercentage.toFixed(2)),
+      };
+      
+      return { data: report, months: sortedMonths };
     };
 
     const populateFilters = () => {
@@ -384,7 +409,7 @@
         }
         return uniqueValues;
       };
-
+      
       const fillSelect = (select, values) => {
         select.innerHTML = '<option value="">All</option>';
         values.forEach(value => {
@@ -405,20 +430,20 @@
       const selectedMonth = elements.monthFilter.value;
       const selectedEnterprise = elements.enterpriseFilter.value;
       const selectedProductType = elements.productTypeFilter.value;
-
+      
       filteredData = allData.filter(row => {
         const monthMatch = !selectedMonth || row['Month'] === selectedMonth;
         const enterpriseMatch = !selectedEnterprise || row['Enterprise'] === selectedEnterprise;
         const productTypeMatch = !selectedProductType || row['Product_Type'] === selectedProductType;
-
-        return monthMatch && enterpriseMatch && productTypeMatch;
+        
+        return monthMatch && enterpriseMatch && productTypeMatch && (row['validation_failure_reason'] || row['vdp_validation_failure_reason']);
       });
       currentIndex = 0;
       renderSpin();
     };
 
     const renderReport = () => {
-      if (reportData.length === 0) {
+      if (!reportData.months || reportData.months.length === 0) {
         elements.reportTableContainer.style.display = 'none';
         elements.noReportData.style.display = 'block';
         return;
@@ -426,16 +451,26 @@
       
       elements.reportTableContainer.style.display = 'block';
       elements.noReportData.style.display = 'none';
-
-      let tableHTML = '<table>';
-      tableHTML += '<thead><tr><th>Month</th><th>Validation Error %</th></tr></thead><tbody>';
       
-      reportData.forEach(row => {
-        tableHTML += `<tr>`;
-        tableHTML += `<td>${escapeHtmlAttr(row['Month_Name'])}</td>`;
-        tableHTML += `<td>${escapeHtmlAttr(row['Percentage'])}%</td>`;
-        tableHTML += `</tr>`;
+      let tableHTML = '<table>';
+      tableHTML += '<thead><tr><th></th>';
+      reportData.months.forEach(month => {
+        tableHTML += `<th>${escapeHtmlAttr(month)}</th>`;
       });
+      tableHTML += '</tr></thead><tbody>';
+      
+      for (const rowLabel in reportData.data) {
+        tableHTML += `<tr>`;
+        tableHTML += `<td><strong>${escapeHtmlAttr(rowLabel)}</strong></td>`;
+        reportData.data[rowLabel].forEach(value => {
+          let displayValue = value;
+          if (rowLabel.includes('%')) {
+            displayValue += '%';
+          }
+          tableHTML += `<td>${escapeHtmlAttr(displayValue)}</td>`;
+        });
+        tableHTML += `</tr>`;
+      }
       
       tableHTML += '</tbody></table>';
       elements.reportTableContainer.innerHTML = tableHTML;
@@ -447,7 +482,7 @@
         const validationError = currentItem['validation_failure_reason'] || currentItem['vdp_validation_failure_reason'] || 'No validation errors';
 
         // Use VDP_URL if it's an image-only validation failure, otherwise use Spin_URL
-        if (currentItem['Product_Type'] === 'images only' && currentItem['vdp_validation_failure_reason'] && currentItem['VDP_URL']) {
+        if (currentItem['Product_Type'] === 'Image' && currentItem['vdp_validation_failure_reason'] && currentItem['VDP_URL']) {
             elements.spinIframe.src = currentItem['VDP_URL'];
         } else {
             elements.spinIframe.src = currentItem['Spin_URL'];
