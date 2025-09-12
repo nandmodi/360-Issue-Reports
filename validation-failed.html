@@ -297,6 +297,10 @@
           <label for="reason-filter">Reason:</label>
           <select id="reason-filter"></select>
         </div>
+        <div>
+          <label for="qc-name-filter">QC Name:</label>
+          <select id="qc-name-filter"></select>
+        </div>
       </div>
     </div>
 
@@ -346,6 +350,7 @@
       enterpriseFilter: document.getElementById('enterprise-filter'),
       productTypeFilter: document.getElementById('product-type-filter'),
       reasonFilter: document.getElementById('reason-filter'),
+      qcNameFilter: document.getElementById('qc-name-filter'),
       errorMessage: document.getElementById('error-message'),
       viewerDetails: document.getElementById('viewer-details'),
       navigationButtons: document.getElementById('navigation-buttons'),
@@ -400,12 +405,22 @@
       try {
         const spinsResponse = await fetch(CSV_URL);
         if (!spinsResponse.ok) {
-            console.log('Failed to fetch spin data:', await spinsResponse.text());
-            throw new Error('Failed to fetch spin data.');
+            console.error(`Failed to fetch spin data. Status: ${spinsResponse.status}, Status Text: ${spinsResponse.statusText}`);
+            throw new Error(`Failed to fetch data (HTTP ${spinsResponse.status}). Please check your internet connection or the data source.`);
         }
         const spinText = await spinsResponse.text();
-        const { data: spinData } = Papa.parse(spinText, { header: true, dynamicTyping: true, skipEmptyLines: true });
+        const { data: spinData, errors } = Papa.parse(spinText, { header: true, dynamicTyping: true, skipEmptyLines: true });
+        
+        if (errors.length > 0) {
+            console.error('PapaParse errors:', errors);
+            throw new Error('Failed to parse CSV data.');
+        }
+
         allData = spinData.filter(row => row['Spin_id'] && (row['Spin_URL'] || row['VDP_URL']));
+
+        if (allData.length === 0) {
+            console.warn('No valid data found after filtering.');
+        }
 
         monthlyReportData = calculateMonthlyReportData(allData);
         reasonReportData = calculateReasonReportData(allData);
@@ -415,8 +430,8 @@
         renderMonthlyReport();
         renderReasonReport();
       } catch (error) {
-        showMessage(`Error fetching or parsing data. Check your network connection. Error: ${error.message}`);
-        console.error('Full fetch error details:', error);
+        showMessage(`Error: ${error.message}`);
+        console.error('Full fetch and parse error details:', error);
       }
     };
 
@@ -542,6 +557,7 @@
       fillSelect(elements.enterpriseFilter, getUniqueEnterprisesWithFailures());
       fillSelect(elements.productTypeFilter, getUniqueValues('Product_Type'));
       fillSelect(elements.reasonFilter, getUniqueReasonsWithFailures());
+      fillSelect(elements.qcNameFilter, getUniqueValues('QC'));
     };
 
     const applyFilters = () => {
@@ -549,6 +565,7 @@
       const selectedEnterprise = elements.enterpriseFilter.value;
       const selectedProductType = elements.productTypeFilter.value;
       const selectedReason = elements.reasonFilter.value;
+      const selectedQcName = elements.qcNameFilter.value;
       
       filteredData = allData.filter(row => {
         const monthMatch = !selectedMonth || row['Month'] === selectedMonth;
@@ -556,8 +573,9 @@
         const productTypeMatch = !selectedProductType || row['Product_Type'] === selectedProductType;
         const reasonString = row['validation_failure_reason'] || row['vdp_validation_failure_reason'];
         const reasonMatch = !selectedReason || (reasonString && reasonString.includes(selectedReason));
+        const qcNameMatch = !selectedQcName || row['QC'] === selectedQcName;
         
-        return monthMatch && enterpriseMatch && productTypeMatch && reasonMatch && (row['validation_failure_reason'] || row['vdp_validation_failure_reason']);
+        return monthMatch && enterpriseMatch && productTypeMatch && reasonMatch && qcNameMatch && (row['validation_failure_reason'] || row['vdp_validation_failure_reason']);
       });
       currentIndex = 0;
       renderSpin();
@@ -681,6 +699,7 @@
       if (filteredData.length > 0) {
         const currentItem = filteredData[currentIndex];
         const validationError = currentItem['validation_failure_reason'] || currentItem['vdp_validation_failure_reason'] || 'No validation errors';
+        const qcName = currentItem['QC'] || 'N/A';
 
         // Use VDP_URL if it's an image-only validation failure, otherwise use Spin_URL
         if (currentItem['Product_Type'] === 'Image' && currentItem['vdp_validation_failure_reason'] && currentItem['VDP_URL']) {
@@ -694,6 +713,7 @@
           <div><strong>SKU ID:</strong> ${escapeHtmlAttr(currentItem['Sku_id'])}</div>
           <div><strong>Product Type:</strong> ${escapeHtmlAttr(currentItem['Product_Type'])}</div>
           <div><strong>Error:</strong> ${escapeHtmlAttr(validationError)}</div>
+          <div><strong>QC Name:</strong> ${escapeHtmlAttr(qcName)}</div>
         `;
         elements.prevBtn.disabled = currentIndex === 0;
         elements.nextBtn.disabled = currentIndex >= filteredData.length - 1;
@@ -728,6 +748,7 @@
     elements.enterpriseFilter.addEventListener('change', applyFilters);
     elements.productTypeFilter.addEventListener('change', applyFilters);
     elements.reasonFilter.addEventListener('change', applyFilters);
+    elements.qcNameFilter.addEventListener('change', applyFilters);
 
     fetchData();
     
