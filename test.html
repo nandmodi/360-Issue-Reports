@@ -53,9 +53,7 @@
       align-items: center;
       margin-bottom: 2rem;
     }
-    @media (max-width: 768px) {
-      .filters { grid-template-columns: 1fr; gap: 1rem; }
-    }
+    @media (max-width: 768px) { .filters { grid-template-columns: 1fr; gap: 1rem; } }
     .filters > div { display: flex; flex-direction: column; gap: 0.5rem; }
     .filters label { font-weight: 500; color: var(--secondary-color); }
     .filters select,
@@ -76,9 +74,7 @@
       border-color: var(--primary-color);
       box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
     }
-    .filters .checkbox-container {
-      background-color: transparent; border: none; padding: 0; min-width: auto;
-    }
+    .filters .checkbox-container { background-color: transparent; border: none; padding: 0; min-width: auto; }
     .report-container h3 { font-size: 1.25rem; font-weight: 600; margin-bottom: 1.5rem; color: var(--text-color); }
     .report-container table { width: 100%; border-collapse: collapse; font-size: 0.9rem; overflow-x: auto; }
     .report-container th, .report-container td { border: 1px solid var(--border-color); padding: 1rem; text-align: center; }
@@ -187,8 +183,10 @@
   </div>
 
   <script>
+    // ==== CONFIG ====
     const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTmm6um2dDueAholFhs2olel5wv2mqH9f1jCAfdL8Qi76mzqbTfzu7OYRea5PwSJP0eD0RLuF6XOkTy/pub?gid=0&single=true&output=csv';
 
+    // ==== ELEMENTS ====
     const elements = {
       spinIframe: document.getElementById('spin-iframe'),
       prevBtn: document.getElementById('prev-btn'),
@@ -208,19 +206,20 @@
       noReasonReportData: document.getElementById('no-reason-report-data'),
     };
 
+    // ==== STATE ====
     let allData = [];
     let filteredData = [];
     let currentIndex = 0;
 
-    // Aggregates for reports (recomputed on every filter change)
-    let monthlyReportData = { data: {}, months: [] }; // data: { [Month]: { imagePercentage, videoPercentage } }
-    let reasonReportData  = { data: {}, months: [] }; // data: { [Reason]: { [Month]: count } }
+    let monthlyReportData = { data: {}, months: [] };
+    let reasonReportData  = { data: {}, months: [] };
 
     let currentSortColumn = null;
     let sortDirection = 'asc';
 
     const monthOrder = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
+    // ==== UTILS ====
     const escapeHtmlAttr = (str) => (!str ? '' : String(str).replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'));
 
     const showMessage = (message, isError = true) => {
@@ -231,17 +230,15 @@
       setTimeout(() => { elements.errorMessage.style.display = 'none'; }, 3000);
     };
 
-    // Dynamic last 4 calendar months (rolling), intersected with available months
     const getRecentMonths = (availableMonths) => {
       const now = new Date();
-      const currentMonthIndex = now.getMonth(); // 0..11
+      const currentMonthIndex = now.getMonth();
       const recent = [];
       for (let i = 0; i < 4; i++) {
         const idx = (currentMonthIndex - i + 12) % 12;
         recent.push(monthOrder[idx]);
       }
       let out = recent.filter(m => availableMonths.includes(m));
-      // Fallback: if none of the last 4 exist, take up to 4 most-recent present in data
       if (out.length === 0) {
         out = [...availableMonths].sort((a,b) => monthOrder.indexOf(b) - monthOrder.indexOf(a)).slice(0,4);
       }
@@ -256,46 +253,18 @@
       qcName: elements.qcNameFilter.value
     });
 
-    // Base filter for reports (enterprise/productType/reason/QC), DOES NOT clamp by month
-    const getBaseFilteredData = () => {
-      const { enterprise, productType, reason, qcName } = getFilters();
+    // Universe filter: Enterprise/Product/QC only (no failure gate, no month gate)
+    const getBaseUniverseData = () => {
+      const { enterprise, productType, qcName } = getFilters();
       return allData.filter(row => {
-        const hasAnyFailure = row['validation_failure_reason'] || row['vdp_validation_failure_reason'];
-        if (!hasAnyFailure) return false;
-
         const enterpriseMatch = !enterprise || row['Enterprise'] === enterprise;
         const productTypeMatch = !productType || row['Product_Type'] === productType;
         const qcMatch = !qcName || row['QC'] === qcName;
-
-        let reasonMatch = true;
-        if (reason) {
-          const rs = (row['validation_failure_reason'] || '') + ' / ' + (row['vdp_validation_failure_reason'] || '');
-          reasonMatch = rs.includes(reason);
-        }
-
-        return enterpriseMatch && productTypeMatch && qcMatch && reasonMatch;
+        return enterpriseMatch && productTypeMatch && qcMatch;
       });
     };
 
-    // Full filter for viewer list (includes month)
-    const applyFilters = () => {
-      const { month } = getFilters();
-
-      const base = getBaseFilteredData();
-
-      // Viewer list: also apply month clamp
-      filteredData = base.filter(row => !month || row['Month'] === month);
-
-      // Recompute both reports from the base-filtered set
-      monthlyReportData = calculateMonthlyReportData(base);
-      reasonReportData  = calculateReasonReportData(base);
-
-      currentIndex = 0;
-      renderSpin();
-      renderMonthlyReport();
-      renderReasonReport();
-    };
-
+    // ==== FETCH ====
     const fetchData = async () => {
       try {
         const resp = await fetch(CSV_URL);
@@ -303,9 +272,7 @@
         const text = await resp.text();
         const { data, errors } = Papa.parse(text, { header: true, dynamicTyping: true, skipEmptyLines: true });
         if (errors.length > 0) throw new Error('Failed to parse CSV data.');
-
         allData = data.filter(row => row['Spin_id'] && (row['Spin_URL'] || row['VDP_URL']));
-
         populateFilters();
         applyFilters();
       } catch (e) {
@@ -314,38 +281,59 @@
       }
     };
 
-    // ----- Aggregations -----
-    const calculateMonthlyReportData = (rows) => {
-      const monthly = {}; // { [Month]: { imageSpins, videoSpins, imageFailed, videoFailed } }
+    // ==== AGGREGATIONS ====
+    // Correct % math: denominator = all spins in universe; numerator = failures (reason filter applied only to numerator)
+    const calculateMonthlyReportData = (rowsUniverse) => {
+      const { reason } = getFilters();
 
-      rows.forEach(row => {
+      const perMonth = {}; // { [Month]: { imgTotal, vidTotal, imgFail, vidFail } }
+
+      // Totals (denominator)
+      rowsUniverse.forEach(row => {
         const m = row['Month'];
         if (!m) return;
-        if (!monthly[m]) monthly[m] = { imageSpins: 0, videoSpins: 0, imageFailed: 0, videoFailed: 0 };
+        if (!perMonth[m]) perMonth[m] = { imgTotal:0, vidTotal:0, imgFail:0, vidFail:0 };
 
         const isImage = (row['Product_Type'] || '').toLowerCase() === 'image';
-        const hasVdpFailure = !!row['vdp_validation_failure_reason'];
-        const hasStdFailure = !!row['validation_failure_reason'];
+        if (isImage) perMonth[m].imgTotal += 1;
+        else         perMonth[m].vidTotal += 1;
+      });
+
+      // Failures (numerator) — apply Reason only here
+      rowsUniverse.forEach(row => {
+        const m = row['Month'];
+        if (!m) return;
+        const isImage = (row['Product_Type'] || '').toLowerCase() === 'image';
+
+        const stdFail = row['validation_failure_reason'] || '';
+        const vdpFail = row['vdp_validation_failure_reason'] || '';
+        const hasFail = stdFail || vdpFail;
+        if (!hasFail) return;
+
+        if (reason) {
+          const rs = `${stdFail} / ${vdpFail}`;
+          if (!rs.includes(reason)) return;
+        }
 
         if (isImage) {
-          monthly[m].imageSpins += 1;
-          if (hasVdpFailure) monthly[m].imageFailed += 1;
+          if (vdpFail) perMonth[m].imgFail += 1; // images → vdp failure field
         } else {
-          monthly[m].videoSpins += 1;
-          if (hasStdFailure) monthly[m].videoFailed += 1;
+          if (stdFail) perMonth[m].vidFail += 1; // videos → standard failure field
         }
       });
 
+      // Build %
       const out = {}; // { [Month]: { imagePercentage, videoPercentage } }
-      Object.keys(monthly).forEach(m => {
-        const x = monthly[m];
-        const imgPct = x.imageSpins > 0 ? (x.imageFailed / x.imageSpins) * 100 : 0;
-        const vidPct = x.videoSpins > 0 ? (x.videoFailed / x.videoSpins) * 100 : 0;
+      Object.keys(perMonth).forEach(m => {
+        const x = perMonth[m];
+        const imgPct = x.imgTotal > 0 ? (x.imgFail / x.imgTotal) * 100 : 0;
+        const vidPct = x.vidTotal > 0 ? (x.vidFail / x.vidTotal) * 100 : 0;
         out[m] = { imagePercentage: imgPct, videoPercentage: vidPct };
       });
 
-      const sortedMonthsByImg = Object.keys(out).sort((a,b) => (out[b].imagePercentage - out[a].imagePercentage));
-      return { data: out, months: sortedMonthsByImg };
+      // Sort months by Image % desc (UI preference)
+      const sortedMonths = Object.keys(out).sort((a,b) => out[b].imagePercentage - out[a].imagePercentage);
+      return { data: out, months: sortedMonths };
     };
 
     const calculateReasonReportData = (rows) => {
@@ -360,18 +348,60 @@
         const reasonString = row['validation_failure_reason'] || row['vdp_validation_failure_reason'];
         if (!reasonString) return;
 
-        const reasons = reasonString.split(/[\/,]/).map(r => r.trim()).filter(Boolean);
-        reasons.forEach(r => {
-          if (!reasonData[r]) reasonData[r] = {};
-          reasonData[r][month] = (reasonData[r][month] || 0) + 1;
-        });
+        reasonString
+          .split(/[\/,]/)
+          .map(r => r.trim())
+          .filter(Boolean)
+          .forEach(r => {
+            if (!reasonData[r]) reasonData[r] = {};
+            reasonData[r][month] = (reasonData[r][month] || 0) + 1;
+          });
       });
 
       const months = [...monthsPresentSet].sort((a,b) => monthOrder.indexOf(b) - monthOrder.indexOf(a));
       return { data: reasonData, months };
     };
 
-    // ----- UI: Filters -----
+    // ==== APPLY FILTERS ====
+    const applyFilters = () => {
+      const { month, reason } = getFilters();
+
+      // Universe after Enterprise/Product/QC
+      const universe = getBaseUniverseData();
+
+      // Viewer list: universe + (has failure) + month + reason
+      filteredData = universe.filter(row => {
+        const hasAnyFailure = row['validation_failure_reason'] || row['vdp_validation_failure_reason'];
+        if (!hasAnyFailure) return false;
+        const monthMatch = !month || row['Month'] === month;
+        const reasonMatch = !reason
+          ? true
+          : ((row['validation_failure_reason'] || '').includes(reason) ||
+             (row['vdp_validation_failure_reason'] || '').includes(reason));
+        return monthMatch && reasonMatch;
+      });
+
+      // Reports:
+      // Monthly: computed from universe (denominator = all, numerator = failures, reason only on numerator)
+      monthlyReportData = calculateMonthlyReportData(universe);
+
+      // Reason report: computed from failures only; apply reason filter here so it can show either all or a focused reason
+      const failuresForReasonReport = universe.filter(row => {
+        const anyFail = row['validation_failure_reason'] || row['vdp_validation_failure_reason'];
+        if (!anyFail) return false;
+        if (!reason) return true;
+        const rs = (row['validation_failure_reason'] || '') + ' / ' + (row['vdp_validation_failure_reason'] || '');
+        return rs.includes(reason);
+      });
+      reasonReportData = calculateReasonReportData(failuresForReasonReport);
+
+      currentIndex = 0;
+      renderSpin();
+      renderMonthlyReport();
+      renderReasonReport();
+    };
+
+    // ==== FILTER UI POPULATION ====
     const populateFilters = () => {
       const getUniqueValues = (key) => {
         const uniq = [...new Set(allData.map(d => d[key]))].filter(Boolean);
@@ -383,10 +413,8 @@
       const getUniqueReasonsWithFailures = () => {
         const s = new Set();
         allData.forEach(row => {
-          const reasonString = row['validation_failure_reason'] || row['vdp_validation_failure_reason'];
-          if (reasonString) {
-            reasonString.split(/[\/,]/).map(r => r.trim()).filter(Boolean).forEach(r => s.add(r));
-          }
+          const rs = row['validation_failure_reason'] || row['vdp_validation_failure_reason'];
+          if (rs) rs.split(/[\/,]/).map(r => r.trim()).filter(Boolean).forEach(r => s.add(r));
         });
         return [...s].sort();
       };
@@ -401,12 +429,12 @@
         return [...s].sort();
       };
 
-      const fillSelect = (select, values) => {
-        select.innerHTML = '<option value="">All</option>';
+      const fillSelect = (el, values) => {
+        el.innerHTML = '<option value="">All</option>';
         values.forEach(v => {
           const opt = document.createElement('option');
           opt.value = v; opt.textContent = v;
-          select.appendChild(opt);
+          el.appendChild(opt);
         });
       };
 
@@ -417,7 +445,7 @@
       fillSelect(elements.qcNameFilter, getUniqueValues('QC'));
     };
 
-    // ----- UI: Reports -----
+    // ==== RENDER: MONTHLY REPORT ====
     const renderMonthlyReport = () => {
       const availableMonths = Object.keys(monthlyReportData.data);
       let monthsToDisplay = [];
@@ -445,7 +473,6 @@
       monthsToDisplay.forEach(m => { html += `<th>${escapeHtmlAttr(m)}</th>`; });
       html += '</tr></thead><tbody>';
 
-      // Image row
       html += '<tr><td><strong>Image Validation Error %</strong></td>';
       monthsToDisplay.forEach(m => {
         const v = monthlyReportData.data[m]?.imagePercentage ?? 0;
@@ -453,7 +480,6 @@
       });
       html += '</tr>';
 
-      // Video row
       html += '<tr><td><strong>Video Validation Error %</strong></td>';
       monthsToDisplay.forEach(m => {
         const v = monthlyReportData.data[m]?.videoPercentage ?? 0;
@@ -465,6 +491,7 @@
       elements.monthlyReportTableContainer.innerHTML = html;
     };
 
+    // ==== RENDER: REASON REPORT ====
     const renderReasonReport = () => {
       const selectedMonth = elements.monthFilter.value;
       const allReasons = Object.keys(reasonReportData.data);
@@ -480,7 +507,6 @@
 
       let monthsToDisplay = selectedMonth ? [selectedMonth] : getRecentMonths(reasonReportData.months);
 
-      // Sort reasons either by clicked month column or by total across shown columns
       const sortedReasons = [...allReasons];
       if (currentSortColumn && monthsToDisplay.includes(currentSortColumn)) {
         sortedReasons.sort((a, b) => {
@@ -520,7 +546,7 @@
       html += '</tbody></table>';
       elements.reasonReportTableContainer.innerHTML = html;
 
-      // Wire sorting clicks
+      // Sorting
       elements.reasonReportTableContainer.querySelectorAll('th.sortable').forEach(th => {
         th.addEventListener('click', (ev) => {
           const m = ev.currentTarget.dataset.month;
@@ -535,7 +561,7 @@
       });
     };
 
-    // ----- UI: Viewer -----
+    // ==== RENDER: VIEWER ====
     const renderSpin = () => {
       if (filteredData.length === 0) {
         elements.spinIframe.src = 'about:blank';
@@ -551,7 +577,6 @@
       const validationError = item['validation_failure_reason'] || item['vdp_validation_failure_reason'] || 'No validation errors';
       const qcName = item['QC'] || 'N/A';
 
-      // Prefer VDP_URL for image validation failures, else Spin_URL
       if ((item['Product_Type'] || '').toLowerCase() === 'image' && item['vdp_validation_failure_reason'] && item['VDP_URL']) {
         elements.spinIframe.src = item['VDP_URL'];
       } else {
@@ -580,7 +605,7 @@
       }
     };
 
-    // ----- Events -----
+    // ==== EVENTS ====
     elements.prevBtn.addEventListener('click', () => navigate(-1));
     elements.nextBtn.addEventListener('click', () => navigate(1));
 
@@ -596,13 +621,12 @@
     elements.reasonFilter.addEventListener('change', onAnyFilterChange);
     elements.qcNameFilter.addEventListener('change', onAnyFilterChange);
 
-    // Keyboard navigation
     document.addEventListener('keydown', (e) => {
       if (e.key === 'ArrowUp') navigate(-1);
       else if (e.key === 'ArrowDown') navigate(1);
     });
 
-    // Init
+    // ==== INIT ====
     fetchData();
   </script>
 </body>
