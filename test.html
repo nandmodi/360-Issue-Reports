@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>360 Validation Failed</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="https://spyne-prod-ai.s3.us-east-1.amazonaws.com/ai-dataset/2025/favicon.ico" type="image/x-icon" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --primary-color: #007BFF;
+      --secondary-color: #6c757d;
+      --background-color: #f8f9fa;
+      --card-bg-color: #ffffff;
+      --text-color: #212529;
+      --border-color: #dee2e6;
+      --shadow-light: rgba(0, 0, 0, 0.05);
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: var(--background-color);
+      color: var(--text-color);
+      padding: 20px;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h2 {
+      font-weight: 600;
+      color: var(--text-color);
+      margin-bottom: 24px;
+      text-align: center;
+      letter-spacing: 1.5px;
+      font-size: 2rem;
+    }
+    @media (max-width: 768px) {
+      h2 { font-size: 1.5rem; margin-bottom: 16px; }
+    }
+    .container { width: 100%; max-width: 1000px; padding: 0 1rem; }
+    .card {
+      background-color: var(--card-bg-color);
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px var(--shadow-light);
+      margin-bottom: 2rem;
+    }
+    .filters {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.5rem;
+      align-items: center;
+      margin-bottom: 2rem;
+    }
+    @media (max-width: 768px) {
+      .filters { grid-template-columns: 1fr; gap: 1rem; }
+    }
+    .filters > div { display: flex; flex-direction: column; gap: 0.5rem; }
+    .filters label { font-weight: 500; color: var(--secondary-color); }
+    .filters select,
+    .filters .checkbox-container {
+      padding: 10px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      font-size: 0.9rem;
+      min-width: 100%;
+      background-color: #fff;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .filters select:focus {
+      outline: none;
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+    }
+    .filters .checkbox-container {
+      background-color: transparent; border: none; padding: 0; min-width: auto;
+    }
+    .report-container h3 { font-size: 1.25rem; font-weight: 600; margin-bottom: 1.5rem; color: var(--text-color); }
+    .report-container table { width: 100%; border-collapse: collapse; font-size: 0.9rem; overflow-x: auto; }
+    .report-container th, .report-container td { border: 1px solid var(--border-color); padding: 1rem; text-align: center; }
+    .report-container thead th { background-color: #e9ecef; font-weight: 600; color: var(--text-color); }
+    .report-container tbody tr:nth-child(odd) { background-color: #f8f9fa; }
+    .report-container tbody tr:hover { background-color: #e9ecef; transition: background-color 0.3s ease; }
+    .viewer-details {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.5rem; width: 100%; padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border-color); margin-bottom: 1.5rem;
+    }
+    .viewer-details div { font-size: 0.9rem; color: var(--secondary-color); }
+    .viewer-details strong { color: var(--text-color); }
+    .iframe-container {
+      width: 100%; padding-top: 56.25%; position: relative; border-radius: 8px;
+      overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .iframe-container iframe { position: absolute; top:0; left:0; width:100%; height:100%; border:none; }
+    .navigation-buttons { display: flex; justify-content: center; gap: 1.5rem; width: 100%; margin-top: 1.5rem; }
+    .btn {
+      padding: 12px 28px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;
+      transition: all 0.2s ease; min-width: 120px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    @media (max-width: 768px) { .btn { min-width: 100px; padding: 10px 20px; } }
+    .btn-primary { background-color: var(--primary-color); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background-color: #0056b3; transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
+    .btn-secondary { background-color: var(--secondary-color); color: #fff; }
+    .btn-secondary:hover:not(:disabled) { background-color: #5a6268; transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; box-shadow: none; transform: none; }
+    .message { text-align: center; padding: 1.5rem; font-size: 1rem; font-weight: 500; border-radius: 8px; margin: 1.5rem 0; display: none; }
+    .message.error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    .message.info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+    .no-results-message { text-align: center; color: #6c757d; margin-top: 1.5rem; display: none; font-weight: 500; font-style: italic; }
+    .checkbox-container { display: flex; align-items: center; gap: 0.5rem; }
+    .scrollable-table { max-height: 250px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; }
+    .report-container th.sortable { cursor: pointer; position: relative; }
+    .report-container th.sortable::after {
+      content:''; position:absolute; right:10px; top:50%; transform:translateY(-50%);
+      width:0; height:0; border-left:5px solid transparent; border-right:5px solid transparent;
+      border-top:5px solid var(--secondary-color); opacity:0.3; transition: opacity 0.2s ease;
+    }
+    .report-container th.sortable.asc::after { border-top:none; border-bottom:5px solid var(--primary-color); opacity:1; }
+    .report-container th.sortable.desc::after { border-bottom:none; border-top:5px solid var(--primary-color); opacity:1; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>360 Validation Failed</h2>
+
+    <div class="card">
+      <div class="filters">
+        <div>
+          <label for="month-filter">Month:</label>
+          <select id="month-filter"></select>
+        </div>
+        <div>
+          <label for="enterprise-filter">Enterprise:</label>
+          <select id="enterprise-filter"></select>
+        </div>
+        <div>
+          <label for="product-type-filter">Product Type:</label>
+          <select id="product-type-filter"></select>
+        </div>
+        <div>
+          <label for="reason-filter">Reason:</label>
+          <select id="reason-filter"></select>
+        </div>
+        <div>
+          <label for="qc-name-filter">QC Name:</label>
+          <select id="qc-name-filter"></select>
+        </div>
+      </div>
+    </div>
+
+    <div class="card report-container">
+      <h3>Validation Failure Report</h3>
+      <div id="monthly-report-table-container"></div>
+      <div id="no-monthly-report-data" class="no-results-message">
+        No validation failure data found to display.
+      </div>
+    </div>
+
+    <div class="card report-container">
+      <h3>Validation Reason Report</h3>
+      <div id="reason-report-table-container" class="scrollable-table"></div>
+      <div id="no-reason-report-data" class="no-results-message">
+        No validation failure reason data found to display.
+      </div>
+    </div>
+
+    <div class="card viewer-container">
+      <div class="viewer-details" id="viewer-details"></div>
+      <div class="iframe-container">
+        <iframe id="spin-iframe" frameborder="0" allowfullscreen></iframe>
+      </div>
+      <div class="navigation-buttons" id="navigation-buttons">
+        <button id="prev-btn" class="btn btn-secondary">Previous</button>
+        <button id="next-btn" class="btn btn-primary">Next</button>
+      </div>
+      <div id="no-results-message" class="no-results-message">
+        No spins found with validation errors for the current filters. Please try a different selection.
+      </div>
+    </div>
+
+    <div id="error-message" class="message error"></div>
+  </div>
+
+  <script>
+    const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTmm6um2dDueAholFhs2olel5wv2mqH9f1jCAfdL8Qi76mzqbTfzu7OYRea5PwSJP0eD0RLuF6XOkTy/pub?gid=0&single=true&output=csv';
+
+    const elements = {
+      spinIframe: document.getElementById('spin-iframe'),
+      prevBtn: document.getElementById('prev-btn'),
+      nextBtn: document.getElementById('next-btn'),
+      monthFilter: document.getElementById('month-filter'),
+      enterpriseFilter: document.getElementById('enterprise-filter'),
+      productTypeFilter: document.getElementById('product-type-filter'),
+      reasonFilter: document.getElementById('reason-filter'),
+      qcNameFilter: document.getElementById('qc-name-filter'),
+      errorMessage: document.getElementById('error-message'),
+      viewerDetails: document.getElementById('viewer-details'),
+      navigationButtons: document.getElementById('navigation-buttons'),
+      noResultsMessage: document.getElementById('no-results-message'),
+      monthlyReportTableContainer: document.getElementById('monthly-report-table-container'),
+      noMonthlyReportData: document.getElementById('no-monthly-report-data'),
+      reasonReportTableContainer: document.getElementById('reason-report-table-container'),
+      noReasonReportData: document.getElementById('no-reason-report-data'),
+    };
+
+    let allData = [];
+    let filteredData = [];
+    let currentIndex = 0;
+
+    // Aggregates for reports (recomputed on every filter change)
+    let monthlyReportData = { data: {}, months: [] }; // data: { [Month]: { imagePercentage, videoPercentage } }
+    let reasonReportData  = { data: {}, months: [] }; // data: { [Reason]: { [Month]: count } }
+
+    let currentSortColumn = null;
+    let sortDirection = 'asc';
+
+    const monthOrder = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+    const escapeHtmlAttr = (str) => (!str ? '' : String(str).replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'));
+
+    const showMessage = (message, isError = true) => {
+      elements.errorMessage.textContent = message;
+      elements.errorMessage.classList.remove('info','error');
+      elements.errorMessage.classList.add(isError ? 'error' : 'info');
+      elements.errorMessage.style.display = 'block';
+      setTimeout(() => { elements.errorMessage.style.display = 'none'; }, 3000);
+    };
+
+    // Dynamic last 4 calendar months (rolling), intersected with available months
+    const getRecentMonths = (availableMonths) => {
+      const now = new Date();
+      const currentMonthIndex = now.getMonth(); // 0..11
+      const recent = [];
+      for (let i = 0; i < 4; i++) {
+        const idx = (currentMonthIndex - i + 12) % 12;
+        recent.push(monthOrder[idx]);
+      }
+      let out = recent.filter(m => availableMonths.includes(m));
+      // Fallback: if none of the last 4 exist, take up to 4 most-recent present in data
+      if (out.length === 0) {
+        out = [...availableMonths].sort((a,b) => monthOrder.indexOf(b) - monthOrder.indexOf(a)).slice(0,4);
+      }
+      return out;
+    };
+
+    const getFilters = () => ({
+      month: elements.monthFilter.value,
+      enterprise: elements.enterpriseFilter.value,
+      productType: elements.productTypeFilter.value,
+      reason: elements.reasonFilter.value,
+      qcName: elements.qcNameFilter.value
+    });
+
+    // Base filter for reports (enterprise/productType/reason/QC), DOES NOT clamp by month
+    const getBaseFilteredData = () => {
+      const { enterprise, productType, reason, qcName } = getFilters();
+      return allData.filter(row => {
+        const hasAnyFailure = row['validation_failure_reason'] || row['vdp_validation_failure_reason'];
+        if (!hasAnyFailure) return false;
+
+        const enterpriseMatch = !enterprise || row['Enterprise'] === enterprise;
+        const productTypeMatch = !productType || row['Product_Type'] === productType;
+        const qcMatch = !qcName || row['QC'] === qcName;
+
+        let reasonMatch = true;
+        if (reason) {
+          const rs = (row['validation_failure_reason'] || '') + ' / ' + (row['vdp_validation_failure_reason'] || '');
+          reasonMatch = rs.includes(reason);
+        }
+
+        return enterpriseMatch && productTypeMatch && qcMatch && reasonMatch;
+      });
+    };
+
+    // Full filter for viewer list (includes month)
+    const applyFilters = () => {
+      const { month } = getFilters();
+
+      const base = getBaseFilteredData();
+
+      // Viewer list: also apply month clamp
+      filteredData = base.filter(row => !month || row['Month'] === month);
+
+      // Recompute both reports from the base-filtered set
+      monthlyReportData = calculateMonthlyReportData(base);
+      reasonReportData  = calculateReasonReportData(base);
+
+      currentIndex = 0;
+      renderSpin();
+      renderMonthlyReport();
+      renderReasonReport();
+    };
+
+    const fetchData = async () => {
+      try {
+        const resp = await fetch(CSV_URL);
+        if (!resp.ok) throw new Error(`Failed to fetch data (HTTP ${resp.status}). Please check your internet connection or the data source.`);
+        const text = await resp.text();
+        const { data, errors } = Papa.parse(text, { header: true, dynamicTyping: true, skipEmptyLines: true });
+        if (errors.length > 0) throw new Error('Failed to parse CSV data.');
+
+        allData = data.filter(row => row['Spin_id'] && (row['Spin_URL'] || row['VDP_URL']));
+
+        populateFilters();
+        applyFilters();
+      } catch (e) {
+        showMessage(`Error: ${e.message}`);
+        console.error(e);
+      }
+    };
+
+    // ----- Aggregations -----
+    const calculateMonthlyReportData = (rows) => {
+      const monthly = {}; // { [Month]: { imageSpins, videoSpins, imageFailed, videoFailed } }
+
+      rows.forEach(row => {
+        const m = row['Month'];
+        if (!m) return;
+        if (!monthly[m]) monthly[m] = { imageSpins: 0, videoSpins: 0, imageFailed: 0, videoFailed: 0 };
+
+        const isImage = (row['Product_Type'] || '').toLowerCase() === 'image';
+        const hasVdpFailure = !!row['vdp_validation_failure_reason'];
+        const hasStdFailure = !!row['validation_failure_reason'];
+
+        if (isImage) {
+          monthly[m].imageSpins += 1;
+          if (hasVdpFailure) monthly[m].imageFailed += 1;
+        } else {
+          monthly[m].videoSpins += 1;
+          if (hasStdFailure) monthly[m].videoFailed += 1;
+        }
+      });
+
+      const out = {}; // { [Month]: { imagePercentage, videoPercentage } }
+      Object.keys(monthly).forEach(m => {
+        const x = monthly[m];
+        const imgPct = x.imageSpins > 0 ? (x.imageFailed / x.imageSpins) * 100 : 0;
+        const vidPct = x.videoSpins > 0 ? (x.videoFailed / x.videoSpins) * 100 : 0;
+        out[m] = { imagePercentage: imgPct, videoPercentage: vidPct };
+      });
+
+      const sortedMonthsByImg = Object.keys(out).sort((a,b) => (out[b].imagePercentage - out[a].imagePercentage));
+      return { data: out, months: sortedMonthsByImg };
+    };
+
+    const calculateReasonReportData = (rows) => {
+      const reasonData = {}; // { [Reason]: { [Month]: count } }
+      const monthsPresentSet = new Set();
+
+      rows.forEach(row => {
+        const month = row['Month'];
+        if (!month) return;
+        monthsPresentSet.add(month);
+
+        const reasonString = row['validation_failure_reason'] || row['vdp_validation_failure_reason'];
+        if (!reasonString) return;
+
+        const reasons = reasonString.split(/[\/,]/).map(r => r.trim()).filter(Boolean);
+        reasons.forEach(r => {
+          if (!reasonData[r]) reasonData[r] = {};
+          reasonData[r][month] = (reasonData[r][month] || 0) + 1;
+        });
+      });
+
+      const months = [...monthsPresentSet].sort((a,b) => monthOrder.indexOf(b) - monthOrder.indexOf(a));
+      return { data: reasonData, months };
+    };
+
+    // ----- UI: Filters -----
+    const populateFilters = () => {
+      const getUniqueValues = (key) => {
+        const uniq = [...new Set(allData.map(d => d[key]))].filter(Boolean);
+        return key === 'Month'
+          ? uniq.sort((a,b) => monthOrder.indexOf(b) - monthOrder.indexOf(a))
+          : uniq.sort();
+      };
+
+      const getUniqueReasonsWithFailures = () => {
+        const s = new Set();
+        allData.forEach(row => {
+          const reasonString = row['validation_failure_reason'] || row['vdp_validation_failure_reason'];
+          if (reasonString) {
+            reasonString.split(/[\/,]/).map(r => r.trim()).filter(Boolean).forEach(r => s.add(r));
+          }
+        });
+        return [...s].sort();
+      };
+
+      const getUniqueEnterprisesWithFailures = () => {
+        const s = new Set();
+        allData.forEach(row => {
+          if (row['Enterprise'] && (row['validation_failure_reason'] || row['vdp_validation_failure_reason'])) {
+            s.add(row['Enterprise']);
+          }
+        });
+        return [...s].sort();
+      };
+
+      const fillSelect = (select, values) => {
+        select.innerHTML = '<option value="">All</option>';
+        values.forEach(v => {
+          const opt = document.createElement('option');
+          opt.value = v; opt.textContent = v;
+          select.appendChild(opt);
+        });
+      };
+
+      fillSelect(elements.monthFilter, getUniqueValues('Month'));
+      fillSelect(elements.enterpriseFilter, getUniqueEnterprisesWithFailures());
+      fillSelect(elements.productTypeFilter, getUniqueValues('Product_Type'));
+      fillSelect(elements.reasonFilter, getUniqueReasonsWithFailures());
+      fillSelect(elements.qcNameFilter, getUniqueValues('QC'));
+    };
+
+    // ----- UI: Reports -----
+    const renderMonthlyReport = () => {
+      const availableMonths = Object.keys(monthlyReportData.data);
+      let monthsToDisplay = [];
+      const selectedMonth = elements.monthFilter.value;
+
+      if (selectedMonth) {
+        monthsToDisplay = availableMonths.includes(selectedMonth) ? [selectedMonth] : [];
+      } else {
+        monthsToDisplay = getRecentMonths(availableMonths);
+      }
+
+      if (monthsToDisplay.length === 0) {
+        elements.monthlyReportTableContainer.style.display = 'none';
+        elements.noMonthlyReportData.style.display = 'block';
+        return;
+      }
+
+      elements.monthlyReportTableContainer.style.display = 'block';
+      elements.noMonthlyReportData.style.display = 'none';
+
+      const fmtPct = (v) => (Number.isFinite(v) ? v.toFixed(2) + '%' : '-');
+
+      let html = '<table>';
+      html += '<thead><tr><th></th>';
+      monthsToDisplay.forEach(m => { html += `<th>${escapeHtmlAttr(m)}</th>`; });
+      html += '</tr></thead><tbody>';
+
+      // Image row
+      html += '<tr><td><strong>Image Validation Error %</strong></td>';
+      monthsToDisplay.forEach(m => {
+        const v = monthlyReportData.data[m]?.imagePercentage ?? 0;
+        html += `<td>${escapeHtmlAttr(fmtPct(v))}</td>`;
+      });
+      html += '</tr>';
+
+      // Video row
+      html += '<tr><td><strong>Video Validation Error %</strong></td>';
+      monthsToDisplay.forEach(m => {
+        const v = monthlyReportData.data[m]?.videoPercentage ?? 0;
+        html += `<td>${escapeHtmlAttr(fmtPct(v))}</td>`;
+      });
+      html += '</tr>';
+
+      html += '</tbody></table>';
+      elements.monthlyReportTableContainer.innerHTML = html;
+    };
+
+    const renderReasonReport = () => {
+      const selectedMonth = elements.monthFilter.value;
+      const allReasons = Object.keys(reasonReportData.data);
+
+      if (allReasons.length === 0) {
+        elements.reasonReportTableContainer.style.display = 'none';
+        elements.noReasonReportData.style.display = 'block';
+        return;
+      }
+
+      elements.reasonReportTableContainer.style.display = 'block';
+      elements.noReasonReportData.style.display = 'none';
+
+      let monthsToDisplay = selectedMonth ? [selectedMonth] : getRecentMonths(reasonReportData.months);
+
+      // Sort reasons either by clicked month column or by total across shown columns
+      const sortedReasons = [...allReasons];
+      if (currentSortColumn && monthsToDisplay.includes(currentSortColumn)) {
+        sortedReasons.sort((a, b) => {
+          const aCount = reasonReportData.data[a]?.[currentSortColumn] || 0;
+          const bCount = reasonReportData.data[b]?.[currentSortColumn] || 0;
+          return sortDirection === 'asc' ? aCount - bCount : bCount - aCount;
+        });
+      } else {
+        sortedReasons.sort((a, b) => {
+          const aTot = monthsToDisplay.reduce((s, m) => s + (reasonReportData.data[a]?.[m] || 0), 0);
+          const bTot = monthsToDisplay.reduce((s, m) => s + (reasonReportData.data[b]?.[m] || 0), 0);
+          return bTot - aTot;
+        });
+      }
+
+      let html = '<table>';
+      html += '<thead><tr><th>Reason</th>';
+      monthsToDisplay.forEach(m => {
+        const sortClass = currentSortColumn === m ? (sortDirection === 'asc' ? 'asc' : 'desc') : '';
+        html += `<th class="sortable ${sortClass}" data-month="${escapeHtmlAttr(m)}">${escapeHtmlAttr(m)}</th>`;
+      });
+      if (!selectedMonth) html += '<th>Total</th>';
+      html += '</tr></thead><tbody>';
+
+      sortedReasons.forEach(r => {
+        let rowTotal = 0;
+        html += `<tr><td>${escapeHtmlAttr(r)}</td>`;
+        monthsToDisplay.forEach(m => {
+          const c = reasonReportData.data[r]?.[m] || 0;
+          rowTotal += c;
+          html += `<td>${escapeHtmlAttr(c)}</td>`;
+        });
+        if (!selectedMonth) html += `<td><strong>${escapeHtmlAttr(rowTotal)}</strong></td>`;
+        html += '</tr>';
+      });
+
+      html += '</tbody></table>';
+      elements.reasonReportTableContainer.innerHTML = html;
+
+      // Wire sorting clicks
+      elements.reasonReportTableContainer.querySelectorAll('th.sortable').forEach(th => {
+        th.addEventListener('click', (ev) => {
+          const m = ev.currentTarget.dataset.month;
+          if (currentSortColumn === m) {
+            sortDirection = (sortDirection === 'asc') ? 'desc' : 'asc';
+          } else {
+            currentSortColumn = m;
+            sortDirection = 'asc';
+          }
+          renderReasonReport();
+        });
+      });
+    };
+
+    // ----- UI: Viewer -----
+    const renderSpin = () => {
+      if (filteredData.length === 0) {
+        elements.spinIframe.src = 'about:blank';
+        elements.viewerDetails.innerHTML = '';
+        elements.prevBtn.disabled = true;
+        elements.nextBtn.disabled = true;
+        elements.navigationButtons.style.display = 'none';
+        elements.noResultsMessage.style.display = 'block';
+        return;
+      }
+
+      const item = filteredData[currentIndex];
+      const validationError = item['validation_failure_reason'] || item['vdp_validation_failure_reason'] || 'No validation errors';
+      const qcName = item['QC'] || 'N/A';
+
+      // Prefer VDP_URL for image validation failures, else Spin_URL
+      if ((item['Product_Type'] || '').toLowerCase() === 'image' && item['vdp_validation_failure_reason'] && item['VDP_URL']) {
+        elements.spinIframe.src = item['VDP_URL'];
+      } else {
+        elements.spinIframe.src = item['Spin_URL'];
+      }
+
+      elements.viewerDetails.innerHTML = `
+        <div><strong>Enterprise:</strong> ${escapeHtmlAttr(item['Enterprise'])}</div>
+        <div><strong>SKU ID:</strong> ${escapeHtmlAttr(item['Sku_id'])}</div>
+        <div><strong>Product Type:</strong> ${escapeHtmlAttr(item['Product_Type'])}</div>
+        <div><strong>Error:</strong> ${escapeHtmlAttr(validationError)}</div>
+        <div><strong>QC Name:</strong> ${escapeHtmlAttr(qcName)}</div>
+      `;
+
+      elements.prevBtn.disabled = currentIndex === 0;
+      elements.nextBtn.disabled = currentIndex >= filteredData.length - 1;
+      elements.navigationButtons.style.display = 'flex';
+      elements.noResultsMessage.style.display = 'none';
+    };
+
+    const navigate = (dir) => {
+      const idx = currentIndex + dir;
+      if (idx >= 0 && idx < filteredData.length) {
+        currentIndex = idx;
+        renderSpin();
+      }
+    };
+
+    // ----- Events -----
+    elements.prevBtn.addEventListener('click', () => navigate(-1));
+    elements.nextBtn.addEventListener('click', () => navigate(1));
+
+    const onAnyFilterChange = () => {
+      currentSortColumn = null;
+      sortDirection = 'asc';
+      applyFilters();
+    };
+
+    elements.monthFilter.addEventListener('change', onAnyFilterChange);
+    elements.enterpriseFilter.addEventListener('change', onAnyFilterChange);
+    elements.productTypeFilter.addEventListener('change', onAnyFilterChange);
+    elements.reasonFilter.addEventListener('change', onAnyFilterChange);
+    elements.qcNameFilter.addEventListener('change', onAnyFilterChange);
+
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowUp') navigate(-1);
+      else if (e.key === 'ArrowDown') navigate(1);
+    });
+
+    // Init
+    fetchData();
+  </script>
+</body>
+</html>
