@@ -1,633 +1,988 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>360 Validation Failed</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="icon" href="https://spyne-prod-ai.s3.us-east-1.amazonaws.com/ai-dataset/2025/favicon.ico" type="image/x-icon" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    :root {
-      --primary-color: #007BFF;
-      --secondary-color: #6c757d;
-      --background-color: #f8f9fa;
-      --card-bg-color: #ffffff;
-      --text-color: #212529;
-      --border-color: #dee2e6;
-      --shadow-light: rgba(0, 0, 0, 0.05);
-    }
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: var(--background-color);
-      color: var(--text-color);
-      padding: 20px;
-      margin: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-    h2 {
-      font-weight: 600;
-      color: var(--text-color);
-      margin-bottom: 24px;
-      text-align: center;
-      letter-spacing: 1.5px;
-      font-size: 2rem;
-    }
-    @media (max-width: 768px) {
-      h2 { font-size: 1.5rem; margin-bottom: 16px; }
-    }
-    .container { width: 100%; max-width: 1000px; padding: 0 1rem; }
-    .card {
-      background-color: var(--card-bg-color);
-      padding: 2rem;
-      border-radius: 12px;
-      box-shadow: 0 4px 20px var(--shadow-light);
-      margin-bottom: 2rem;
-    }
-    .filters {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 1.5rem;
-      align-items: center;
-      margin-bottom: 2rem;
-    }
-    @media (max-width: 768px) { .filters { grid-template-columns: 1fr; gap: 1rem; } }
-    .filters > div { display: flex; flex-direction: column; gap: 0.5rem; }
-    .filters label { font-weight: 500; color: var(--secondary-color); }
-    .filters select,
-    .filters .checkbox-container {
-      padding: 10px 12px;
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      font-size: 0.9rem;
-      min-width: 100%;
-      background-color: #fff;
-      transition: all 0.2s ease;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-    .filters select:focus {
-      outline: none;
-      border-color: var(--primary-color);
-      box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
-    }
-    .filters .checkbox-container { background-color: transparent; border: none; padding: 0; min-width: auto; }
-    .report-container h3 { font-size: 1.25rem; font-weight: 600; margin-bottom: 1.5rem; color: var(--text-color); }
-    .report-container table { width: 100%; border-collapse: collapse; font-size: 0.9rem; overflow-x: auto; }
-    .report-container th, .report-container td { border: 1px solid var(--border-color); padding: 1rem; text-align: center; }
-    .report-container thead th { background-color: #e9ecef; font-weight: 600; color: var(--text-color); }
-    .report-container tbody tr:nth-child(odd) { background-color: #f8f9fa; }
-    .report-container tbody tr:hover { background-color: #e9ecef; transition: background-color 0.3s ease; }
-    .viewer-details {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 1.5rem; width: 100%; padding-bottom: 1.5rem;
-      border-bottom: 1px solid var(--border-color); margin-bottom: 1.5rem;
-    }
-    .viewer-details div { font-size: 0.9rem; color: var(--secondary-color); }
-    .viewer-details strong { color: var(--text-color); }
-    .iframe-container {
-      width: 100%; padding-top: 56.25%; position: relative; border-radius: 8px;
-      overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    }
-    .iframe-container iframe { position: absolute; top:0; left:0; width:100%; height:100%; border:none; }
-    .navigation-buttons { display: flex; justify-content: center; gap: 1.5rem; width: 100%; margin-top: 1.5rem; }
-    .btn {
-      padding: 12px 28px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;
-      transition: all 0.2s ease; min-width: 120px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    }
-    @media (max-width: 768px) { .btn { min-width: 100px; padding: 10px 20px; } }
-    .btn-primary { background-color: var(--primary-color); color: #fff; }
-    .btn-primary:hover:not(:disabled) { background-color: #0056b3; transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
-    .btn-secondary { background-color: var(--secondary-color); color: #fff; }
-    .btn-secondary:hover:not(:disabled) { background-color: #5a6268; transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
-    .btn:disabled { opacity: 0.6; cursor: not-allowed; box-shadow: none; transform: none; }
-    .message { text-align: center; padding: 1.5rem; font-size: 1rem; font-weight: 500; border-radius: 8px; margin: 1.5rem 0; display: none; }
-    .message.error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-    .message.info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
-    .no-results-message { text-align: center; color: #6c757d; margin-top: 1.5rem; display: none; font-weight: 500; font-style: italic; }
-    .checkbox-container { display: flex; align-items: center; gap: 0.5rem; }
-    .scrollable-table { max-height: 250px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; }
-    .report-container th.sortable { cursor: pointer; position: relative; }
-    .report-container th.sortable::after {
-      content:''; position:absolute; right:10px; top:50%; transform:translateY(-50%);
-      width:0; height:0; border-left:5px solid transparent; border-right:5px solid transparent;
-      border-top:5px solid var(--secondary-color); opacity:0.3; transition: opacity 0.2s ease;
-    }
-    .report-container th.sortable.asc::after { border-top:none; border-bottom:5px solid var(--primary-color); opacity:1; }
-    .report-container th.sortable.desc::after { border-bottom:none; border-top:5px solid var(--primary-color); opacity:1; }
-  </style>
+<meta charset="UTF-8" />
+<title>360 Issue Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" href="https://spyne-prod-ai.s3.us-east-1.amazonaws.com/ai-dataset/2025/favicon.ico" type="image/x-icon" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+<style>
+  /* Your CSS unchanged */
+  body { font-family: Arial, sans-serif; background: #f8f9fa; margin: 0; padding: 20px; }
+  .header-bar { position: fixed; top: 0; left: 0; right: 0; background: #fff; padding: 10px 0; text-align: center; font-weight: bold; font-size: 22px; z-index: 10000; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+  .tabs { position: fixed; top: 48px; left: 0; right: 0; background: #fff; display: flex; border-bottom: 2px solid #ccc; z-index: 10000; }
+  .tab { padding: 12px 20px; cursor: pointer; font-weight: bold; color: #555; border-bottom: 3px solid transparent; user-select: none; }
+  .tab.active { color: #007bff; border-color: #007bff; }
+  .filters { position: fixed; top: 88px; left: 0; right: 0; background: #f8f9fa; padding: 10px 20px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; border-bottom: 1px solid #ccc; z-index: 9999; }
+  .filters select, .filters button { padding: 6px 10px; font-size: 14px; border-radius: 4px; border: 1px solid #ccc; cursor: pointer; }
+  .filters button { background-color: #007bff; color: white; border: none; }
+  .summary-bar { position: fixed; top: 128px; left: 0; right: 0; background: #e2e6ea; z-index: 9998; padding: 10px 20px; display: flex; justify-content: space-between; font-weight: bold; border-top: 1px solid #ccc; border-bottom: 2px solid #ccc; }
+  .summary-section { position: fixed; top: 168px; left: 0; right: 0; background: #fff; z-index: 9997; padding: 10px 20px; display: flex; gap: 20px; justify-content: center; border-bottom: 1px solid #ccc; font-weight: 600; user-select: none; }
+  .summary-item { flex: 1; text-align: center; font-size: 16px; color: #333; }
+  .summary-value { font-size: 22px; color: #007bff; display: block; margin-top: 4px; }
+  .main-content { margin-top: 210px; padding: 0 20px; }
+  .chart-row { display: flex; gap: 20px; justify-content: space-between; margin: 20px 0; }
+  .chart-box.issue { flex: 2; background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
+  .chart-box.pie { flex: 1; background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
+  .dual-table-row { display: flex; gap: 20px; margin-bottom: 20px; }
+  .dual-table-row .full-width-table { flex: 1; max-height: 400px; overflow-y: auto; background: #fff; padding: 10px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
+  table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+  th, td { border: 1px solid #ccc; padding: 8px; text-align: center; user-select: none; cursor: pointer; }
+  th { background: #f0f0f0; }
+  th.asc::after { content: " ▲"; }
+  th.desc::after { content: " ▼"; }
+  .bottom-row { display: flex; gap: 20px; }
+  .table-box { flex: 1; max-height: 320px; overflow-y: auto; }
+  .iframe-box { flex: 2; }
+  iframe { width: 100%; height: 300px; border: none; border-radius: 10px; }
+  .clickable { color: blue; text-decoration: underline; cursor: pointer; }
+  .chart-container { background: #fff; padding: 15px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); flex: 1; }
+  #severityTrendChart, #issueTrendChart { height: 300px; }
+  .summary-tables { margin-top: 30px; }
+
+  /* Tab content show/hide */
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* ======= New: Hamburger + Dropdown ======= */
+  .menu-wrapper {
+    position: fixed;
+    top: 10px;
+    left: 12px;
+    z-index: 11000; /* above header/tabs */
+  }
+  .hamburger {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+    background: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  }
+  .hamburger span {
+    display: block;
+    width: 20px;
+    height: 3px;
+    background: #000;
+    border-radius: 2px;
+    margin: 2.5px 0;
+  }
+  .menu-dropdown {
+    position: absolute;
+    top: 42px;
+    left: 0;
+    min-width: 220px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+    padding: 6px;
+    display: none;
+  }
+  .menu-dropdown.open { display: block; }
+  .menu-item {
+    display: block;
+    padding: 10px 12px;
+    border-radius: 8px;
+    text-decoration: none;
+    color: #111827;
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .menu-item:hover {
+    background: #f3f4f6;
+  }
+  /* Add a little left padding to header so the icon doesn’t overlap text on small screens */
+  @media (max-width: 480px) {
+    .header-bar { padding-left: 56px; }
+  }
+</style>
 </head>
 <body>
-  <div class="container">
-    <h2>360 Validation Failed</h2>
 
-    <div class="card">
-      <div class="filters">
-        <div>
-          <label for="month-filter">Month:</label>
-          <select id="month-filter"></select>
-        </div>
-        <div>
-          <label for="enterprise-filter">Enterprise:</label>
-          <select id="enterprise-filter"></select>
-        </div>
-        <div>
-          <label for="product-type-filter">Product Type:</label>
-          <select id="product-type-filter"></select>
-        </div>
-        <div>
-          <label for="reason-filter">Reason:</label>
-          <select id="reason-filter"></select>
-        </div>
-        <div>
-          <label for="qc-name-filter">QC Name:</label>
-          <select id="qc-name-filter"></select>
-        </div>
-      </div>
+<!-- New: Menu button + dropdown -->
+<div class="menu-wrapper">
+  <button id="menuButton" class="hamburger" aria-label="Open menu" aria-expanded="false">
+    <span></span><span></span><span></span>
+  </button>
+  <div id="menuDropdown" class="menu-dropdown" role="menu" aria-hidden="true">
+    <a class="menu-item" href="https://nandmodi.github.io/360-Issue-Reports/validation-failed.html" target="_blank" rel="noopener">Validation Report</a>
+  </div>
+</div>
+
+<div class="header-bar">360 Issue Dashboard</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="dashboardTab">Dashboard</div>
+  <div class="tab" data-tab="summaryTab">Summary</div>
+</div>
+
+<div class="filters" id="filtersSection">
+  <select id="monthFilter" data-label="Month"><option value="">Month</option></select>
+  <select id="severityFilter" data-label="Severity"><option value="">Severity</option></select>
+  <select id="issueFilter" data-label="Issue"><option value="">Issue</option></select>
+  <select id="enterpriseFilter" data-label="Enterprise"><option value="">Enterprise</option></select>
+  <select id="productTypeFilter" data-label="Product_Type"><option value="">Product Type</option></select>
+  <select id="qcFilter" data-label="QC"><option value="">QC</option></select>
+  <button onclick="resetFilters()">Reset</button>
+</div>
+
+<div class="summary-bar" id="summaryBar">
+  <div>Total Marked Spin: <span id="markedSpin">0</span></div>
+  <div>
+    <button onclick="loadAndRender()" title="Refresh" style="background:none;border:none;cursor:pointer;font-size:18px;">🔄</button>
+    <button onclick="exportTableToCSV('spin-data.csv')" title="Export CSV" style="background:none;border:none;cursor:pointer;font-size:18px;">📤</button>
+  </div>
+  <div>Total Received Spin: <span id="receivedSpin">0</span></div>
+</div>
+
+<div class="summary-section" id="summarySection">
+  <div class="summary-item">Total Spins <span class="summary-value" id="totalSpins">0</span></div>
+  <div class="summary-item">Unique Issues <span class="summary-value" id="uniqueIssues">0</span></div>
+  <div class="summary-item">Unique Enterprises <span class="summary-value" id="uniqueEnterprises">0</span></div>
+  <div class="summary-item">Blocker Issues <span class="summary-value" id="blockerIssues">0</span></div>
+  <div class="summary-item">High Severity <span class="summary-value" id="highIssues">0</span></div>
+  <div class="summary-item">Low Severity <span class="summary-value" id="lowIssues">0</span></div>
+</div>
+
+<!-- Dashboard Tab -->
+<div class="main-content tab-content active" id="dashboardTab">
+  <div class="chart-row">
+    <div class="chart-box issue"><canvas id="issueChart"></canvas></div>
+    <div class="chart-box pie"><canvas id="severityPie"></canvas></div>
+  </div>
+  <div class="dual-table-row">
+    <div class="full-width-table">
+      <h3>Issue</h3>
+      <table id="issueSummary">
+        <thead>
+          <tr>
+            <th>Issue</th>
+            <th onclick="sortTable(this)">Total</th>
+            <th onclick="sortTable(this)">Blocker</th>
+            <th onclick="sortTable(this)">High</th>
+            <th onclick="sortTable(this)">Low</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
     </div>
-
-    <div class="card report-container">
-      <h3>Validation Failure Report</h3>
-      <div id="monthly-report-table-container"></div>
-      <div id="no-monthly-report-data" class="no-results-message">
-        No validation failure data found to display.
-      </div>
+    <div class="full-width-table">
+      <h3>Enterprise</h3>
+      <table id="enterpriseSummary">
+        <thead>
+          <tr>
+            <th>Enterprise</th>
+            <th onclick="sortTable(this)">Total</th>
+            <th onclick="sortTable(this)">Blocker</th>
+            <th onclick="sortTable(this)">High</th>
+            <th onclick="sortTable(this)">Low</th>
+          </tr>
+</thead>
+        <tbody></tbody>
+      </table>
     </div>
-
-    <div class="card report-container">
-      <h3>Validation Reason Report</h3>
-      <div id="reason-report-table-container" class="scrollable-table"></div>
-      <div id="no-reason-report-data" class="no-results-message">
-        No validation failure reason data found to display.
-      </div>
+  </div>
+  <div class="bottom-row">
+    <div class="table-box">
+      <table id="spinTable">
+        <thead>
+          <tr><th>Spin ID</th><th>Issue</th><th>Severity</th><th>Enterprise</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
     </div>
-
-    <div class="card viewer-container">
-      <div class="viewer-details" id="viewer-details"></div>
-      <div class="iframe-container">
-        <iframe id="spin-iframe" frameborder="0" allowfullscreen></iframe>
-      </div>
-      <div class="navigation-buttons" id="navigation-buttons">
-        <button id="prev-btn" class="btn btn-secondary">Previous</button>
-        <button id="next-btn" class="btn btn-primary">Next</button>
-      </div>
-      <div id="no-results-message" class="no-results-message">
-        No spins found with validation errors for the current filters. Please try a different selection.
-      </div>
+    <div class="iframe-box">
+      <iframe id="spinIframe" title="Spin Preview"></iframe>
     </div>
+  </div>
+</div>
 
-    <div id="error-message" class="message error"></div>
+<!-- Summary Tab -->
+<div class="main-content tab-content" id="summaryTab">
+  <div class="chart-row">
+    <div class="chart-container">
+      <h3>Severity Trend (%)</h3>
+      <canvas id="severityTrendChart"></canvas>
+    </div>
+    <div class="chart-container">
+      <h3>Issue Trend (%)</h3>
+      <canvas id="issueTrendChart"></canvas>
+    </div>
   </div>
 
-  <script>
-    // ==== CONFIG ====
-    const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTmm6um2dDueAholFhs2olel5wv2mqH9f1jCAfdL8Qi76mzqbTfzu7OYRea5PwSJP0eD0RLuF6XOkTy/pub?gid=0&single=true&output=csv';
+  <div class="summary-tables">
+    <h3>Severity Details (Month-wise)</h3>
+    <table id="severityDetailsTable">
+      <thead><tr id="severityDetailsHeader"><th onclick="sortTable(this)">Severity</th></tr></thead>
+      <tbody id="severityDetailsBody"></tbody>
+    </table>
 
-    // ==== ELEMENTS ====
-    const elements = {
-      spinIframe: document.getElementById('spin-iframe'),
-      prevBtn: document.getElementById('prev-btn'),
-      nextBtn: document.getElementById('next-btn'),
-      monthFilter: document.getElementById('month-filter'),
-      enterpriseFilter: document.getElementById('enterprise-filter'),
-      productTypeFilter: document.getElementById('product-type-filter'),
-      reasonFilter: document.getElementById('reason-filter'),
-      qcNameFilter: document.getElementById('qc-name-filter'),
-      errorMessage: document.getElementById('error-message'),
-      viewerDetails: document.getElementById('viewer-details'),
-      navigationButtons: document.getElementById('navigation-buttons'),
-      noResultsMessage: document.getElementById('no-results-message'),
-      monthlyReportTableContainer: document.getElementById('monthly-report-table-container'),
-      noMonthlyReportData: document.getElementById('no-monthly-report-data'),
-      reasonReportTableContainer: document.getElementById('reason-report-table-container'),
-      noReasonReportData: document.getElementById('no-reason-report-data'),
-    };
+ <div class="summary-tables">
+      <h3>Severity Details (Week-wise)</h3>
+      <table id="severityDetailsWeekTable">
+        <thead><tr id="severityDetailsWeekHeader"><th onclick="sortTable(this)">Severity</th></tr></thead>
+        <tbody id="severityDetailsWeekBody"></tbody>
+      </table>
+    </div>
 
-    // ==== STATE ====
-    let allData = [];
-    let filteredData = [];
-    let currentIndex = 0;
+    <h3>Issue Details (Month-wise)</h3>
+    <table id="issueDetailsTable">
+      <thead><tr id="issueDetailsHeader"><th onclick="sortTable(this)">Issue</th></tr></thead>
+      <tbody id="issueDetailsBody"></tbody>
+    </table>
 
-    let monthlyReportData = { data: {}, months: [] };
-    let reasonReportData  = { data: {}, months: [] };
+   
+    <div class="summary-tables">
+      <h3>Issue Details (Week-wise)</h3>
+      <table id="issueDetailsWeekTable">
+        <thead><tr id="issueDetailsWeekHeader"><th onclick="sortTable(this)">Issue</th></tr></thead>
+        <tbody id="issueDetailsWeekBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
-    let currentSortColumn = null;
-    let sortDirection = 'asc';
+<script>
+  /* ======= New: Menu toggle logic ======= */
+  (function setupMenu(){
+    const btn = document.getElementById('menuButton');
+    const menu = document.getElementById('menuDropdown');
 
-    const monthOrder = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-
-    // ==== UTILS ====
-    const escapeHtmlAttr = (str) => (!str ? '' : String(str).replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'));
-
-    const showMessage = (message, isError = true) => {
-      elements.errorMessage.textContent = message;
-      elements.errorMessage.classList.remove('info','error');
-      elements.errorMessage.classList.add(isError ? 'error' : 'info');
-      elements.errorMessage.style.display = 'block';
-      setTimeout(() => { elements.errorMessage.style.display = 'none'; }, 3000);
-    };
-
-    const getRecentMonths = (availableMonths) => {
-      const now = new Date();
-      const currentMonthIndex = now.getMonth();
-      const recent = [];
-      for (let i = 0; i < 4; i++) {
-        const idx = (currentMonthIndex - i + 12) % 12;
-        recent.push(monthOrder[idx]);
+    function closeMenu() {
+      menu.classList.remove('open');
+      btn.setAttribute('aria-expanded', 'false');
+      menu.setAttribute('aria-hidden', 'true');
+    }
+    function toggleMenu(e) {
+      e.stopPropagation();
+      const open = !menu.classList.contains('open');
+      if (open) {
+        menu.classList.add('open');
+        btn.setAttribute('aria-expanded', 'true');
+        menu.setAttribute('aria-hidden', 'false');
+      } else {
+        closeMenu();
       }
-      let out = recent.filter(m => availableMonths.includes(m));
-      if (out.length === 0) {
-        out = [...availableMonths].sort((a,b) => monthOrder.indexOf(b) - monthOrder.indexOf(a)).slice(0,4);
-      }
-      return out;
-    };
-
-    const getFilters = () => ({
-      month: elements.monthFilter.value,
-      enterprise: elements.enterpriseFilter.value,
-      productType: elements.productTypeFilter.value,
-      reason: elements.reasonFilter.value,
-      qcName: elements.qcNameFilter.value
+    }
+    btn.addEventListener('click', toggleMenu);
+    document.addEventListener('click', (e) => {
+      if (!menu.contains(e.target) && e.target !== btn) closeMenu();
     });
-
-    // Universe filter: Enterprise/Product/QC only (no failure gate, no month gate)
-    const getBaseUniverseData = () => {
-      const { enterprise, productType, qcName } = getFilters();
-      return allData.filter(row => {
-        const enterpriseMatch = !enterprise || row['Enterprise'] === enterprise;
-        const productTypeMatch = !productType || row['Product_Type'] === productType;
-        const qcMatch = !qcName || row['QC'] === qcName;
-        return enterpriseMatch && productTypeMatch && qcMatch;
-      });
-    };
-
-    // ==== FETCH ====
-    const fetchData = async () => {
-      try {
-        const resp = await fetch(CSV_URL);
-        if (!resp.ok) throw new Error(`Failed to fetch data (HTTP ${resp.status}). Please check your internet connection or the data source.`);
-        const text = await resp.text();
-        const { data, errors } = Papa.parse(text, { header: true, dynamicTyping: true, skipEmptyLines: true });
-        if (errors.length > 0) throw new Error('Failed to parse CSV data.');
-        allData = data.filter(row => row['Spin_id'] && (row['Spin_URL'] || row['VDP_URL']));
-        populateFilters();
-        applyFilters();
-      } catch (e) {
-        showMessage(`Error: ${e.message}`);
-        console.error(e);
-      }
-    };
-
-    // ==== AGGREGATIONS ====
-    // Correct % math: denominator = all spins in universe; numerator = failures (reason filter applied only to numerator)
-    const calculateMonthlyReportData = (rowsUniverse) => {
-      const { reason } = getFilters();
-
-      const perMonth = {}; // { [Month]: { imgTotal, vidTotal, imgFail, vidFail } }
-
-      // Totals (denominator)
-      rowsUniverse.forEach(row => {
-        const m = row['Month'];
-        if (!m) return;
-        if (!perMonth[m]) perMonth[m] = { imgTotal:0, vidTotal:0, imgFail:0, vidFail:0 };
-
-        const isImage = (row['Product_Type'] || '').toLowerCase() === 'image';
-        if (isImage) perMonth[m].imgTotal += 1;
-        else         perMonth[m].vidTotal += 1;
-      });
-
-      // Failures (numerator) — apply Reason only here
-      rowsUniverse.forEach(row => {
-        const m = row['Month'];
-        if (!m) return;
-        const isImage = (row['Product_Type'] || '').toLowerCase() === 'image';
-
-        const stdFail = row['validation_failure_reason'] || '';
-        const vdpFail = row['vdp_validation_failure_reason'] || '';
-        const hasFail = stdFail || vdpFail;
-        if (!hasFail) return;
-
-        if (reason) {
-          const rs = `${stdFail} / ${vdpFail}`;
-          if (!rs.includes(reason)) return;
-        }
-
-        if (isImage) {
-          if (vdpFail) perMonth[m].imgFail += 1; // images → vdp failure field
-        } else {
-          if (stdFail) perMonth[m].vidFail += 1; // videos → standard failure field
-        }
-      });
-
-      // Build %
-      const out = {}; // { [Month]: { imagePercentage, videoPercentage } }
-      Object.keys(perMonth).forEach(m => {
-        const x = perMonth[m];
-        const imgPct = x.imgTotal > 0 ? (x.imgFail / x.imgTotal) * 100 : 0;
-        const vidPct = x.vidTotal > 0 ? (x.vidFail / x.vidTotal) * 100 : 0;
-        out[m] = { imagePercentage: imgPct, videoPercentage: vidPct };
-      });
-
-      // Sort months by Image % desc (UI preference)
-      const sortedMonths = Object.keys(out).sort((a,b) => out[b].imagePercentage - out[a].imagePercentage);
-      return { data: out, months: sortedMonths };
-    };
-
-    const calculateReasonReportData = (rows) => {
-      const reasonData = {}; // { [Reason]: { [Month]: count } }
-      const monthsPresentSet = new Set();
-
-      rows.forEach(row => {
-        const month = row['Month'];
-        if (!month) return;
-        monthsPresentSet.add(month);
-
-        const reasonString = row['validation_failure_reason'] || row['vdp_validation_failure_reason'];
-        if (!reasonString) return;
-
-        reasonString
-          .split(/[\/,]/)
-          .map(r => r.trim())
-          .filter(Boolean)
-          .forEach(r => {
-            if (!reasonData[r]) reasonData[r] = {};
-            reasonData[r][month] = (reasonData[r][month] || 0) + 1;
-          });
-      });
-
-      const months = [...monthsPresentSet].sort((a,b) => monthOrder.indexOf(b) - monthOrder.indexOf(a));
-      return { data: reasonData, months };
-    };
-
-    // ==== APPLY FILTERS ====
-    const applyFilters = () => {
-      const { month, reason } = getFilters();
-
-      // Universe after Enterprise/Product/QC
-      const universe = getBaseUniverseData();
-
-      // Viewer list: universe + (has failure) + month + reason
-      filteredData = universe.filter(row => {
-        const hasAnyFailure = row['validation_failure_reason'] || row['vdp_validation_failure_reason'];
-        if (!hasAnyFailure) return false;
-        const monthMatch = !month || row['Month'] === month;
-        const reasonMatch = !reason
-          ? true
-          : ((row['validation_failure_reason'] || '').includes(reason) ||
-             (row['vdp_validation_failure_reason'] || '').includes(reason));
-        return monthMatch && reasonMatch;
-      });
-
-      // Reports:
-      // Monthly: computed from universe (denominator = all, numerator = failures, reason only on numerator)
-      monthlyReportData = calculateMonthlyReportData(universe);
-
-      // Reason report: computed from failures only; apply reason filter here so it can show either all or a focused reason
-      const failuresForReasonReport = universe.filter(row => {
-        const anyFail = row['validation_failure_reason'] || row['vdp_validation_failure_reason'];
-        if (!anyFail) return false;
-        if (!reason) return true;
-        const rs = (row['validation_failure_reason'] || '') + ' / ' + (row['vdp_validation_failure_reason'] || '');
-        return rs.includes(reason);
-      });
-      reasonReportData = calculateReasonReportData(failuresForReasonReport);
-
-      currentIndex = 0;
-      renderSpin();
-      renderMonthlyReport();
-      renderReasonReport();
-    };
-
-    // ==== FILTER UI POPULATION ====
-    const populateFilters = () => {
-      const getUniqueValues = (key) => {
-        const uniq = [...new Set(allData.map(d => d[key]))].filter(Boolean);
-        return key === 'Month'
-          ? uniq.sort((a,b) => monthOrder.indexOf(b) - monthOrder.indexOf(a))
-          : uniq.sort();
-      };
-
-      const getUniqueReasonsWithFailures = () => {
-        const s = new Set();
-        allData.forEach(row => {
-          const rs = row['validation_failure_reason'] || row['vdp_validation_failure_reason'];
-          if (rs) rs.split(/[\/,]/).map(r => r.trim()).filter(Boolean).forEach(r => s.add(r));
-        });
-        return [...s].sort();
-      };
-
-      const getUniqueEnterprisesWithFailures = () => {
-        const s = new Set();
-        allData.forEach(row => {
-          if (row['Enterprise'] && (row['validation_failure_reason'] || row['vdp_validation_failure_reason'])) {
-            s.add(row['Enterprise']);
-          }
-        });
-        return [...s].sort();
-      };
-
-      const fillSelect = (el, values) => {
-        el.innerHTML = '<option value="">All</option>';
-        values.forEach(v => {
-          const opt = document.createElement('option');
-          opt.value = v; opt.textContent = v;
-          el.appendChild(opt);
-        });
-      };
-
-      fillSelect(elements.monthFilter, getUniqueValues('Month'));
-      fillSelect(elements.enterpriseFilter, getUniqueEnterprisesWithFailures());
-      fillSelect(elements.productTypeFilter, getUniqueValues('Product_Type'));
-      fillSelect(elements.reasonFilter, getUniqueReasonsWithFailures());
-      fillSelect(elements.qcNameFilter, getUniqueValues('QC'));
-    };
-
-    // ==== RENDER: MONTHLY REPORT ====
-    const renderMonthlyReport = () => {
-      const availableMonths = Object.keys(monthlyReportData.data);
-      let monthsToDisplay = [];
-      const selectedMonth = elements.monthFilter.value;
-
-      if (selectedMonth) {
-        monthsToDisplay = availableMonths.includes(selectedMonth) ? [selectedMonth] : [];
-      } else {
-        monthsToDisplay = getRecentMonths(availableMonths);
-      }
-
-      if (monthsToDisplay.length === 0) {
-        elements.monthlyReportTableContainer.style.display = 'none';
-        elements.noMonthlyReportData.style.display = 'block';
-        return;
-      }
-
-      elements.monthlyReportTableContainer.style.display = 'block';
-      elements.noMonthlyReportData.style.display = 'none';
-
-      const fmtPct = (v) => (Number.isFinite(v) ? v.toFixed(2) + '%' : '-');
-
-      let html = '<table>';
-      html += '<thead><tr><th></th>';
-      monthsToDisplay.forEach(m => { html += `<th>${escapeHtmlAttr(m)}</th>`; });
-      html += '</tr></thead><tbody>';
-
-      html += '<tr><td><strong>Image Validation Error %</strong></td>';
-      monthsToDisplay.forEach(m => {
-        const v = monthlyReportData.data[m]?.imagePercentage ?? 0;
-        html += `<td>${escapeHtmlAttr(fmtPct(v))}</td>`;
-      });
-      html += '</tr>';
-
-      html += '<tr><td><strong>Video Validation Error %</strong></td>';
-      monthsToDisplay.forEach(m => {
-        const v = monthlyReportData.data[m]?.videoPercentage ?? 0;
-        html += `<td>${escapeHtmlAttr(fmtPct(v))}</td>`;
-      });
-      html += '</tr>';
-
-      html += '</tbody></table>';
-      elements.monthlyReportTableContainer.innerHTML = html;
-    };
-
-    // ==== RENDER: REASON REPORT ====
-    const renderReasonReport = () => {
-      const selectedMonth = elements.monthFilter.value;
-      const allReasons = Object.keys(reasonReportData.data);
-
-      if (allReasons.length === 0) {
-        elements.reasonReportTableContainer.style.display = 'none';
-        elements.noReasonReportData.style.display = 'block';
-        return;
-      }
-
-      elements.reasonReportTableContainer.style.display = 'block';
-      elements.noReasonReportData.style.display = 'none';
-
-      let monthsToDisplay = selectedMonth ? [selectedMonth] : getRecentMonths(reasonReportData.months);
-
-      const sortedReasons = [...allReasons];
-      if (currentSortColumn && monthsToDisplay.includes(currentSortColumn)) {
-        sortedReasons.sort((a, b) => {
-          const aCount = reasonReportData.data[a]?.[currentSortColumn] || 0;
-          const bCount = reasonReportData.data[b]?.[currentSortColumn] || 0;
-          return sortDirection === 'asc' ? aCount - bCount : bCount - aCount;
-        });
-      } else {
-        sortedReasons.sort((a, b) => {
-          const aTot = monthsToDisplay.reduce((s, m) => s + (reasonReportData.data[a]?.[m] || 0), 0);
-          const bTot = monthsToDisplay.reduce((s, m) => s + (reasonReportData.data[b]?.[m] || 0), 0);
-          return bTot - aTot;
-        });
-      }
-
-      let html = '<table>';
-      html += '<thead><tr><th>Reason</th>';
-      monthsToDisplay.forEach(m => {
-        const sortClass = currentSortColumn === m ? (sortDirection === 'asc' ? 'asc' : 'desc') : '';
-        html += `<th class="sortable ${sortClass}" data-month="${escapeHtmlAttr(m)}">${escapeHtmlAttr(m)}</th>`;
-      });
-      if (!selectedMonth) html += '<th>Total</th>';
-      html += '</tr></thead><tbody>';
-
-      sortedReasons.forEach(r => {
-        let rowTotal = 0;
-        html += `<tr><td>${escapeHtmlAttr(r)}</td>`;
-        monthsToDisplay.forEach(m => {
-          const c = reasonReportData.data[r]?.[m] || 0;
-          rowTotal += c;
-          html += `<td>${escapeHtmlAttr(c)}</td>`;
-        });
-        if (!selectedMonth) html += `<td><strong>${escapeHtmlAttr(rowTotal)}</strong></td>`;
-        html += '</tr>';
-      });
-
-      html += '</tbody></table>';
-      elements.reasonReportTableContainer.innerHTML = html;
-
-      // Sorting
-      elements.reasonReportTableContainer.querySelectorAll('th.sortable').forEach(th => {
-        th.addEventListener('click', (ev) => {
-          const m = ev.currentTarget.dataset.month;
-          if (currentSortColumn === m) {
-            sortDirection = (sortDirection === 'asc') ? 'desc' : 'asc';
-          } else {
-            currentSortColumn = m;
-            sortDirection = 'asc';
-          }
-          renderReasonReport();
-        });
-      });
-    };
-
-    // ==== RENDER: VIEWER ====
-    const renderSpin = () => {
-      if (filteredData.length === 0) {
-        elements.spinIframe.src = 'about:blank';
-        elements.viewerDetails.innerHTML = '';
-        elements.prevBtn.disabled = true;
-        elements.nextBtn.disabled = true;
-        elements.navigationButtons.style.display = 'none';
-        elements.noResultsMessage.style.display = 'block';
-        return;
-      }
-
-      const item = filteredData[currentIndex];
-      const validationError = item['validation_failure_reason'] || item['vdp_validation_failure_reason'] || 'No validation errors';
-      const qcName = item['QC'] || 'N/A';
-
-      if ((item['Product_Type'] || '').toLowerCase() === 'image' && item['vdp_validation_failure_reason'] && item['VDP_URL']) {
-        elements.spinIframe.src = item['VDP_URL'];
-      } else {
-        elements.spinIframe.src = item['Spin_URL'];
-      }
-
-      elements.viewerDetails.innerHTML = `
-        <div><strong>Enterprise:</strong> ${escapeHtmlAttr(item['Enterprise'])}</div>
-        <div><strong>SKU ID:</strong> ${escapeHtmlAttr(item['Sku_id'])}</div>
-        <div><strong>Product Type:</strong> ${escapeHtmlAttr(item['Product_Type'])}</div>
-        <div><strong>Error:</strong> ${escapeHtmlAttr(validationError)}</div>
-        <div><strong>QC Name:</strong> ${escapeHtmlAttr(qcName)}</div>
-      `;
-
-      elements.prevBtn.disabled = currentIndex === 0;
-      elements.nextBtn.disabled = currentIndex >= filteredData.length - 1;
-      elements.navigationButtons.style.display = 'flex';
-      elements.noResultsMessage.style.display = 'none';
-    };
-
-    const navigate = (dir) => {
-      const idx = currentIndex + dir;
-      if (idx >= 0 && idx < filteredData.length) {
-        currentIndex = idx;
-        renderSpin();
-      }
-    };
-
-    // ==== EVENTS ====
-    elements.prevBtn.addEventListener('click', () => navigate(-1));
-    elements.nextBtn.addEventListener('click', () => navigate(1));
-
-    const onAnyFilterChange = () => {
-      currentSortColumn = null;
-      sortDirection = 'asc';
-      applyFilters();
-    };
-
-    elements.monthFilter.addEventListener('change', onAnyFilterChange);
-    elements.enterpriseFilter.addEventListener('change', onAnyFilterChange);
-    elements.productTypeFilter.addEventListener('change', onAnyFilterChange);
-    elements.reasonFilter.addEventListener('change', onAnyFilterChange);
-    elements.qcNameFilter.addEventListener('change', onAnyFilterChange);
-
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'ArrowUp') navigate(-1);
-      else if (e.key === 'ArrowDown') navigate(1);
+      if (e.key === 'Escape') closeMenu();
+    });
+  })();
+
+  let globalData = [];
+  let totalDataGlobal = [];
+  let weekRanges = {};
+
+  let severityTrendChartInstance = null;
+  let issueTrendChartInstance = null;
+  let pieChartInstance = null;
+  let barChartInstance = null;
+
+  async function loadAndRender() {
+    const [qcData, totalData] = await Promise.all([
+      loadCSV('https://docs.google.com/spreadsheets/d/1JlcXL8X1VRxlRVGyTuLElsm9IgOiteT6amOEXrEx-jY/gviz/tq?tqx=out:csv&sheet=Data'),
+      loadCSV('https://docs.google.com/spreadsheets/d/1EiI4vOQ4Fcq80YaOxosEqFZ49sftVBH-jbp4xARqfWM/gviz/tq?tqx=out:csv&sheet=All-Data')
+    ]);
+    globalData = qcData;
+    totalDataGlobal = totalData;
+    calculateLastFourWeeks();
+    applyFilters();
+  }
+
+  function loadCSV(url) {
+    return fetch(url).then(res => res.text()).then(text =>
+      new Promise(resolve => {
+        Papa.parse(text, {
+          header: true,
+          skipEmptyLines: true,
+          complete: results => resolve(results.data)
+        });
+      })
+    );
+  }
+
+  // Helper function to format week range strings
+  function getFormattedWeekRange(start, end) {
+    const startMonth = start.toLocaleString('default', { month: 'short' });
+    const endMonth = end.toLocaleString('default', { month: 'short' });
+    const startDay = start.getDate();
+    const endDay = end.getDate();
+    return `${startMonth} ${startDay} - ${endMonth} ${endDay}`;
+  }
+
+  // This function dynamically calculates the last four complete weeks.
+  function calculateLastFourWeeks() {
+    weekRanges = {};
+    const today = new Date();
+    const lastSunday = new Date(today.setDate(today.getDate() - today.getDay()));
+
+    for (let i = 0; i < 4; i++) {
+        const weekEndDate = new Date(lastSunday.getTime());
+        weekEndDate.setDate(lastSunday.getDate() - (i * 7));
+        const weekStartDate = new Date(weekEndDate.getTime());
+        weekStartDate.setDate(weekEndDate.getDate() - 6);
+
+        const weekName = `Week ${i + 1}`;
+        weekRanges[weekName] = { 
+            name: `${weekName}: ${getFormattedWeekRange(weekStartDate, weekEndDate)}`,
+            start: weekStartDate,
+            end: weekEndDate 
+        };
+    }
+  }
+
+  function resetFilters() {
+    document.getElementById('monthFilter').value = '';
+    document.getElementById('severityFilter').value = '';
+    document.getElementById('issueFilter').value = '';
+    document.getElementById('enterpriseFilter').value = '';
+    document.getElementById('productTypeFilter').value = '';
+    document.getElementById('qcFilter').value = '';
+    applyFilters();
+  }
+
+  function populateFilters(data) {
+    const config = {
+      monthFilter: 'Month', severityFilter: 'Severity', issueFilter: 'Issue',
+      enterpriseFilter: 'Enterprise', productTypeFilter: 'Product_Type', qcFilter: 'QC'
+    };
+    Object.entries(config).forEach(([id, key]) => {
+      const select = document.getElementById(id);
+      const selectedValue = select.value;
+      const defaultText = select.getAttribute('data-label') || key;
+      let options = [...new Set(data.map(d => d[key] || '').filter(Boolean))];
+
+      if (id === 'monthFilter') {
+        const weekOptions = Object.values(weekRanges).map(w => w.name).reverse();
+        options = [...options, ...weekOptions];
+      }
+
+      select.innerHTML = `<option value="">${defaultText}</option>` +
+        options.map(v => `<option value="${v}" ${v === selectedValue ? 'selected' : ''}>${v}</option>`).join('');
+      select.onchange = applyFilters;
+    });
+  }
+
+  function applyFilters() {
+    const filters = {
+      Month: document.getElementById('monthFilter').value,
+      Severity: document.getElementById('severityFilter').value,
+      Issue: document.getElementById('issueFilter').value,
+      Enterprise: document.getElementById('enterpriseFilter').value,
+      Product_Type: document.getElementById('productTypeFilter').value,
+      QC: document.getElementById('qcFilter').value
+    };
+
+    const weekFilterKey = Object.keys(weekRanges).find(key => weekRanges[key].name === filters.Month);
+    const isWeekFilter = !!weekFilterKey;
+    const weekRange = isWeekFilter ? weekRanges[weekFilterKey] : null;
+
+    const markedMatch = row => {
+      const rowDate = row['Date'] ? new Date(row['Date']) : null;
+      if (!rowDate) return false;
+
+      const rowMonth = row['Month'];
+      
+      const monthMatch = !filters.Month || (
+        !isWeekFilter && rowMonth === filters.Month
+      ) || (
+        isWeekFilter && rowDate >= weekRange.start && rowDate <= weekRange.end
+      );
+
+      return monthMatch &&
+        (!filters.Severity || row['Severity'] === filters.Severity) &&
+        (!filters.Issue || row['Issue'] === filters.Issue) &&
+        (!filters.Enterprise || row['Enterprise'] === filters.Enterprise) &&
+        (!filters.Product_Type || row['Product_Type'] === filters.Product_Type) &&
+        (!filters.QC || row['QC'] === filters.QC);
+    };
+
+    const receivedMatch = row => {
+      const rowDate = row['Date'] ? new Date(row['Date']) : null;
+      if (!rowDate) return false;
+
+      const rowMonth = row['Month'];
+      
+      const monthMatch = !filters.Month || (
+        !isWeekFilter && rowMonth === filters.Month
+      ) || (
+        isWeekFilter && rowDate >= weekRange.start && rowDate <= weekRange.end
+      );
+
+      return monthMatch &&
+        (!filters.Enterprise || row['Enterprise'] === filters.Enterprise) &&
+        (!filters.Product_Type || row['Product_Type'] === filters.Product_Type) &&
+        (!filters.QC || row['QC'] === filters.QC);
+    };
+
+    const filteredMarked = globalData.filter(markedMatch);
+    const filteredReceived = totalDataGlobal.filter(receivedMatch);
+
+    document.getElementById('markedSpin').textContent = new Set(filteredMarked.map(r => r['Spin_id'])).size;
+    document.getElementById('receivedSpin').textContent = new Set(filteredReceived.map(r => r['Spin_id'])).size;
+
+    populateSummarySection(filteredMarked);
+
+    populateFilters(globalData);
+    renderIssueTable(filteredMarked);
+    renderEnterpriseIssueTable(filteredMarked);
+    renderSpinTable(filteredMarked);
+    renderPieChart(filteredMarked);
+    renderBarChart(filteredMarked);
+
+    renderSeverityTrendChart(filteredMarked);
+    renderIssueTrendChart(filteredMarked);
+    renderSeverityDetailsTable(filteredMarked);
+    renderIssueDetailsTable(filteredMarked);
+    renderSeverityDetailsWeekTable(filteredMarked);
+    renderIssueDetailsWeekTable(filteredMarked);
+  }
+
+  function populateSummarySection(data) {
+    document.getElementById('totalSpins').textContent = data.length;
+    document.getElementById('uniqueIssues').textContent = new Set(data.map(d => d.Issue)).size;
+    document.getElementById('uniqueEnterprises').textContent = new Set(data.map(d => d.Enterprise)).size;
+    document.getElementById('blockerIssues').textContent = data.filter(d => d.Severity === 'Blocker').length;
+    document.getElementById('highIssues').textContent = data.filter(d => d.Severity === 'High').length;
+    document.getElementById('lowIssues').textContent = data.filter(d => d.Severity === 'Low').length;
+  }
+
+  function renderIssueTable(data) {
+    const tbody = document.getElementById('issueSummary').querySelector('tbody');
+    const issueMap = {};
+    data.forEach(row => {
+      const issue = row['Issue'] || 'Other';
+      const sev = row['Severity'] || 'Low';
+      if (!issueMap[issue]) issueMap[issue] = { Blocker: 0, High: 0, Low: 0, Total: 0 };
+      issueMap[issue][sev]++;
+      issueMap[issue].Total++;
+    });
+    tbody.innerHTML = '';
+    const total = data.length;
+    Object.entries(issueMap).forEach(([issue, s]) => {
+      tbody.innerHTML += `<tr><td>${issue}</td>
+  <td><b>${((s.Total / total) * 100).toFixed(1)}%</b> <span style="font-size: 0.6em; color: #666;">(${s.Total})</span></td>
+  <td><b>${((s.Blocker / s.Total) * 100).toFixed(1)}%</b> <span style="font-size: 0.6em; color: #666;">(${s.Blocker})</span></td>
+  <td><b>${((s.High / s.Total) * 100).toFixed(1)}%</b> <span style="font-size: 0.6em; color: #666;">(${s.High})</span></td>
+  <td><b>${((s.Low / s.Total) * 100).toFixed(1)}%</b> <span style="font-size: 0.6em; color: #666;">(${s.Low})</span></td></tr>`;
+    });
+  }
+
+  function renderEnterpriseIssueTable(data) {
+    const tbody = document.getElementById('enterpriseSummary').querySelector('tbody');
+    const enterpriseMap = {};
+    data.forEach(row => {
+      const ent = row['Enterprise'] || 'Unknown';
+      const sev = row['Severity'] || 'Low';
+      if (!enterpriseMap[ent]) enterpriseMap[ent] = { Blocker: 0, High: 0, Low: 0, Total: 0 };
+      enterpriseMap[ent][sev]++;
+      enterpriseMap[ent].Total++;
+    });
+    tbody.innerHTML = '';
+    const total = data.length;
+    Object.entries(enterpriseMap).forEach(([ent, s]) => {
+      tbody.innerHTML += `<tr><td>${ent}</td>
+  <td><b>${((s.Total / total) * 100).toFixed(1)}%</b> <span style="font-size: 0.6em; color: #666;">(${s.Total})</span></td>
+  <td><b>${((s.Blocker / s.Total) * 100).toFixed(1)}%</b> <span style="font-size: 0.6em; color: #666;">(${s.Blocker})</span></td>
+  <td><b>${((s.High / s.Total) * 100).toFixed(1)}%</b> <span style="font-size: 0.6em; color: #666;">(${s.High})</span></td>
+  <td><b>${((s.Low / s.Total) * 100).toFixed(1)}%</b> <span style="font-size: 0.6em; color: #666;">(${s.Low})</span></td></tr>`;
+    });
+  }
+
+  function renderSpinTable(data) {
+    const tbody = document.getElementById('spinTable').querySelector('tbody');
+    tbody.innerHTML = '';
+    data.forEach(row => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td class="clickable" onclick="document.getElementById('spinIframe').src='${row['Spin'] || '#'}'">${row['Spin_id']}</td>
+        <td>${row['Issue']}</td><td>${row['Severity']}</td><td>${row['Enterprise']}</td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function renderPieChart(data) {
+    const sevCount = { Blocker: 0, High: 0, Low: 0 };
+    data.forEach(row => sevCount[row['Severity']] = (sevCount[row['Severity']] || 0) + 1);
+    const total = Object.values(sevCount).reduce((a, b) => a + b, 0);
+    const ctx = document.getElementById('severityPie').getContext('2d');
+    if (pieChartInstance) pieChartInstance.destroy();
+    pieChartInstance = new Chart(ctx, {
+      type: 'pie',
+      data: {
+        labels: Object.keys(sevCount),
+        datasets: [{ data: Object.values(sevCount), backgroundColor: ['#FF6384', '#36A2EB', '#4BC0C0'] }]
+      },
+      options: {
+        plugins: {
+          legend: { position: 'right' },
+          datalabels: {
+            formatter: value => `${((value / total) * 100).toFixed(1)}%`,
+            color: '#000'
+          }
+        }
+      },
+      plugins: [ChartDataLabels]
+    });
+  }
+
+  function renderBarChart(data) {
+    const issueCounts = {};
+    data.forEach(row => {
+      const issue = row['Issue'] || 'Other';
+      issueCounts[issue] = (issueCounts[issue] || 0) + 1;
+    });
+    const total = Object.values(issueCounts).reduce((a, b) => a + b, 0);
+    const ctx = document.getElementById('issueChart').getContext('2d');
+    if (barChartInstance) barChartInstance.destroy();
+    barChartInstance = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: Object.keys(issueCounts),
+        datasets: [{ label: 'Issue %', data: Object.values(issueCounts).map(v => ((v / total) * 100).toFixed(1)), backgroundColor: '#007bff' }]
+      },
+      options: {
+        plugins: {
+          datalabels: { anchor: 'end', align: 'end', formatter: v => `${v}%`, color: '#000' }
+        },
+        scales: { y: { beginAtZero: true } }
+      },
+      plugins: [ChartDataLabels]
+    });
+  }
+
+  function renderSeverityTrendChart(data) {
+    const monthsSet = new Set(data.map(d => d.Month).filter(Boolean));
+    const months = Array.from(monthsSet).sort((a,b) => new Date('1 ' + b) - new Date('1 ' + a));
+
+    const severitiesSet = new Set(data.map(d => d.Severity).filter(Boolean));
+    const severities = Array.from(severitiesSet);
+
+    const totalPerMonth = {};
+    data.forEach(row => {
+      const month = row.Month || 'Unknown';
+      totalPerMonth[month] = (totalPerMonth[month] || 0) + 1;
     });
 
-    // ==== INIT ====
-    fetchData();
-  </script>
+    const matrix = {};
+    data.forEach(row => {
+      const sev = row.Severity || 'Low';
+      const month = row.Month || 'Unknown';
+      if (!matrix[sev]) matrix[sev] = {};
+      matrix[sev][month] = (matrix[sev][month] || 0) + 1;
+    });
+
+    // Updated color map: Blocker is red
+    const colorsMap = {
+      Blocker: '#FF0000',  // red
+      High: '#FF6384',
+      Low: '#36A2EB'
+    };
+    const colors = severities.map(sev => colorsMap[sev] || '#000000');
+
+    const datasets = severities.map((sev, i) => ({
+      label: sev,
+      data: months.map(m => {
+        const count = matrix[sev]?.[m] || 0;
+        const total = totalPerMonth[m] || 1;
+        return ((count / total) * 100).toFixed(1);
+      }),
+      borderColor: colors[i],
+      backgroundColor: 'transparent',
+      fill: false,
+      tension: 0.3,
+      pointRadius: 5,
+      pointHoverRadius: 7,
+    }));
+
+    const ctx = document.getElementById('severityTrendChart').getContext('2d');
+    if(severityTrendChartInstance) severityTrendChartInstance.destroy();
+    severityTrendChartInstance = new Chart(ctx, {
+      type: 'line',
+      data: { labels: months, datasets },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: 'top' },
+          tooltip: {
+            mode: 'index',
+            intersect: false,
+            callbacks: {
+              label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y}%`
+            }
+          },
+          datalabels: {
+            display: true,
+            align: 'end',
+            anchor: 'end',
+            offset: 4,
+            formatter: value => `${value}%`,
+            color: '#000',
+            font: { size: 12 }
+          }
+        },
+        interaction: { mode: 'nearest', intersect: false },
+        scales: {
+          y: {
+            beginAtZero: true,
+            max: 100,
+            title: { display: true, text: 'Percentage (%)' },
+            ticks: { callback: val => val + '%' }
+          },
+          x: { title: { display: true, text: 'Month' } }
+        }
+      },
+      plugins: [ChartDataLabels]
+    });
+  }
+
+  function renderIssueTrendChart(data) {
+    const monthsSet = new Set(data.map(d => d.Month).filter(Boolean));
+    const months = Array.from(monthsSet).sort((a,b) => new Date('1 ' + b) - new Date('1 ' + a));
+
+    const issuesSet = new Set(data.map(d => d.Issue).filter(Boolean));
+    const issues = Array.from(issuesSet);
+
+    const totalPerMonth = {};
+    data.forEach(row => {
+      const month = row.Month || 'Unknown';
+      totalPerMonth[month] = (totalPerMonth[month] || 0) + 1;
+    });
+
+    const matrix = {};
+    data.forEach(row => {
+      const issue = row.Issue || 'Other';
+      const month = row.Month || 'Unknown';
+      if (!matrix[issue]) matrix[issue] = {};
+      matrix[issue][month] = (matrix[issue][month] || 0) + 1;
+    });
+
+    const colors = ['#FF9F40', '#9966FF', '#FFCD56', '#4BC0C0', '#36A2EB', '#FF6384', '#800000', '#008000'];
+    const datasets = issues.map((issue, i) => ({
+      label: issue,
+      data: months.map(m => {
+        const count = matrix[issue]?.[m] || 0;
+        const total = totalPerMonth[m] || 1;
+        return ((count / total) * 100).toFixed(1);
+      }),
+      borderColor: colors[i % colors.length],
+      backgroundColor: 'transparent',
+      fill: false,
+      tension: 0.3,
+      pointRadius: 5,
+      pointHoverRadius: 7,
+      hidden: false
+    }));
+
+    datasets.unshift({
+      label: 'All Issues',
+      data: new Array(months.length).fill(null),
+      borderColor: '#000000',
+      backgroundColor: 'transparent',
+      fill: false,
+      pointRadius: 0,
+      pointHoverRadius: 0,
+      hidden: false,
+    });
+
+    const ctx = document.getElementById('issueTrendChart').getContext('2d');
+    if(issueTrendChartInstance) issueTrendChartInstance.destroy();
+
+    issueTrendChartInstance = new Chart(ctx, {
+      type: 'line',
+      data: { labels: months, datasets },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: {
+              filter: (legendItem) => legendItem.text !== '',
+            },
+            onClick: (e, legendItem, legend) => {
+              const chart = legend.chart;
+              const index = legendItem.datasetIndex;
+
+              if (index === 0) {
+                chart.data.datasets.forEach((ds, i) => {
+                  if (i === 0) return;
+                  ds.hidden = false;
+                });
+                chart.update();
+              } else {
+                const selectedDataset = chart.data.datasets[index];
+                const isHidden = selectedDataset.hidden;
+                const visibleCount = chart.data.datasets.filter(ds => !ds.hidden && ds !== chart.data.datasets[0]).length;
+
+                if (isHidden || visibleCount !== 1) {
+                  chart.data.datasets.forEach((ds, i) => {
+                    if (i === 0) return;
+                    ds.hidden = i !== index;
+                  });
+                } else {
+                  chart.data.datasets.forEach((ds, i) => {
+                    if (i === 0) return;
+                    ds.hidden = false;
+                  });
+                }
+                chart.update();
+              }
+            }
+          },
+          tooltip: {
+            mode: 'index',
+            intersect: false,
+            callbacks: {
+              label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y}%`
+            }
+          },
+          datalabels: {
+            display: true,
+            align: 'end',
+            anchor: 'end',
+            offset: 4,
+            formatter: value => `${value}%`,
+            color: '#000',
+            font: { size: 12 }
+          }
+        },
+        interaction: { mode: 'nearest', intersect: false },
+        scales: {
+          y: {
+            beginAtZero: true,
+            max: 100,
+            title: { display: true, text: 'Percentage (%)' },
+            ticks: { callback: val => val + '%' }
+          },
+          x: { title: { display: true, text: 'Month' } }
+        }
+      },
+      plugins: [ChartDataLabels]
+    });
+  }
+
+  function renderSeverityDetailsTable(data) {
+    const header = document.getElementById('severityDetailsHeader');
+    const tbody = document.getElementById('severityDetailsBody');
+
+    const monthsSet = new Set(data.map(d => d.Month).filter(Boolean));
+    const severitiesSet = new Set(data.map(d => d.Severity).filter(Boolean));
+
+    const months = Array.from(monthsSet).sort((a,b) => new Date('1 ' + b) - new Date('1 ' + a));
+    const severities = Array.from(severitiesSet);
+
+    header.innerHTML = '<th onclick="sortTable(this)">Severity</th>' + months.map(m => `<th onclick="sortTable(this)">${m}</th>`).join('');
+
+    const totalsPerMonth = {};
+    data.forEach(row => {
+      const month = row.Month || 'Unknown';
+      totalsPerMonth[month] = (totalsPerMonth[month] || 0) + 1;
+    });
+
+    const matrix = {};
+    data.forEach(row => {
+      const sev = row.Severity || 'Low';
+      const month = row.Month || 'Unknown';
+      if (!matrix[sev]) matrix[sev] = {};
+      matrix[sev][month] = (matrix[sev][month] || 0) + 1;
+    });
+
+    tbody.innerHTML = '';
+    severities.forEach(sev => {
+      const rowCells = months.map(m => {
+        const count = matrix[sev]?.[m] || 0;
+        const total = totalsPerMonth[m] || 1;
+        const percent = ((count / total) * 100).toFixed(1);
+        return `<td>${count} <span style="font-size:0.6em; color:#666;">(${percent}%)</span></td>`;
+      });
+      tbody.innerHTML += `<tr><td>${sev}</td>${rowCells.join('')}</tr>`;
+    });
+  }
+
+  function renderIssueDetailsTable(data) {
+    const header = document.getElementById('issueDetailsHeader');
+    const tbody = document.getElementById('issueDetailsBody');
+
+    const monthsSet = new Set(data.map(d => d.Month).filter(Boolean));
+    const issuesSet = new Set(data.map(d => d.Issue).filter(Boolean));
+
+    const months = Array.from(monthsSet).sort((a,b) => new Date('1 ' + b) - new Date('1 ' + a));
+    const issues = Array.from(issuesSet);
+
+    header.innerHTML = '<th onclick="sortTable(this)">Issue</th>' + months.map(m => `<th onclick="sortTable(this)">${m}</th>`).join('');
+
+    const totalsPerMonth = {};
+    data.forEach(row => {
+      const month = row.Month || 'Unknown';
+      totalsPerMonth[month] = (totalsPerMonth[month] || 0) + 1;
+    });
+
+    const matrix = {};
+    data.forEach(row => {
+      const issue = row.Issue || 'Other';
+      const month = row.Month || 'Unknown';
+      if (!matrix[issue]) matrix[issue] = {};
+      matrix[issue][month] = (matrix[issue][month] || 0) + 1;
+    });
+
+    tbody.innerHTML = '';
+    issues.forEach(issue => {
+      const rowCells = months.map(m => {
+        const count = matrix[issue]?.[m] || 0;
+        const total = totalsPerMonth[m] || 1;
+        const percent = ((count / total) * 100).toFixed(1);
+        return `<td>${count} <span style="font-size:0.6em; color:#666;">(${percent}%)</span></td>`;
+      });
+      tbody.innerHTML += `<tr><td>${issue}</td>${rowCells.join('')}</tr>`;
+    });
+  }
+
+  function renderSeverityDetailsWeekTable(data) {
+    const header = document.getElementById('severityDetailsWeekHeader');
+    const tbody = document.getElementById('severityDetailsWeekBody');
+
+    const weeks = Object.keys(weekRanges)
+  .sort((a, b) => weekRanges[b].start - weekRanges[a].start)
+  .map(key => weekRanges[key].name);
+    const severitiesSet = new Set(data.map(d => d.Severity).filter(Boolean));
+    const severities = Array.from(severitiesSet);
+
+    header.innerHTML = '<th onclick="sortTable(this)">Severity</th>' + weeks.map(w => `<th onclick="sortTable(this)">${w}</th>`).join('');
+
+    const totalsPerWeek = {};
+    const matrix = {};
+
+    data.forEach(row => {
+      const rowDate = new Date(row['Date']);
+      const weekName = Object.keys(weekRanges).find(key => 
+          rowDate >= weekRanges[key].start && rowDate <= weekRanges[key].end
+      );
+
+      if (weekName) {
+        const sev = row.Severity || 'Low';
+        const formattedWeekName = weekRanges[weekName].name;
+        
+        totalsPerWeek[formattedWeekName] = (totalsPerWeek[formattedWeekName] || 0) + 1;
+        if (!matrix[sev]) matrix[sev] = {};
+        matrix[sev][formattedWeekName] = (matrix[sev][formattedWeekName] || 0) + 1;
+      }
+    });
+
+    tbody.innerHTML = '';
+    severities.forEach(sev => {
+      const rowCells = weeks.map(w => {
+        const count = matrix[sev]?.[w] || 0;
+        const total = totalsPerWeek[w] || 1;
+        const percent = ((count / total) * 100).toFixed(1);
+        return `<td>${count} <span style="font-size:0.6em; color:#666;">(${percent}%)</span></td>`;
+      });
+      tbody.innerHTML += `<tr><td>${sev}</td>${rowCells.join('')}</tr>`;
+    });
+  }
+
+  function renderIssueDetailsWeekTable(data) {
+    const header = document.getElementById('issueDetailsWeekHeader');
+    const tbody = document.getElementById('issueDetailsWeekBody');
+
+    const weeks = Object.values(weekRanges).map(w => w.name).reverse();
+    const issuesSet = new Set(data.map(d => d.Issue).filter(Boolean));
+    const issues = Array.from(issuesSet);
+
+    header.innerHTML = '<th onclick="sortTable(this)">Issue</th>' + weeks.map(w => `<th onclick="sortTable(this)">${w}</th>`).join('');
+
+    const totalsPerWeek = {};
+    const matrix = {};
+
+    data.forEach(row => {
+      const rowDate = new Date(row['Date']);
+      const weekName = Object.keys(weekRanges).find(key => 
+          rowDate >= weekRanges[key].start && rowDate <= weekRanges[key].end
+      );
+
+      if (weekName) {
+        const issue = row.Issue || 'Other';
+        const formattedWeekName = weekRanges[weekName].name;
+        
+        totalsPerWeek[formattedWeekName] = (totalsPerWeek[formattedWeekName] || 0) + 1;
+        if (!matrix[issue]) matrix[issue] = {};
+        matrix[issue][formattedWeekName] = (matrix[issue][formattedWeekName] || 0) + 1;
+      }
+    });
+
+    tbody.innerHTML = '';
+    issues.forEach(issue => {
+      const rowCells = weeks.map(w => {
+        const count = matrix[issue]?.[w] || 0;
+        const total = totalsPerWeek[w] || 1;
+        const percent = ((count / total) * 100).toFixed(1);
+        return `<td>${count} <span style="font-size:0.6em; color:#666;">(${percent}%)</span></td>`;
+      });
+      tbody.innerHTML += `<tr><td>${issue}</td>${rowCells.join('')}</tr>`;
+    });
+  }
+
+  function sortTable(header) {
+    const table = header.closest('table');
+    const tbody = table.querySelector('tbody');
+    const index = Array.from(header.parentNode.children).indexOf(header);
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+
+    Array.from(header.parentNode.children).forEach(th => {
+      if (th !== header) th.classList.remove('asc', 'desc');
+    });
+
+    const isDesc = header.classList.contains('desc');
+    header.classList.toggle('desc', !isDesc);
+    header.classList.toggle('asc', isDesc);
+
+    const parseCell = (text) => {
+      const match = text.match(/([\d.]+)/);
+      return match ? parseFloat(match[1]) : text.trim().toLowerCase();
+    };
+
+    rows.sort((a, b) => {
+      const valA = parseCell(a.children[index].textContent);
+      const valB = parseCell(b.children[index].textContent);
+
+      const isNumeric = !isNaN(valA) && !isNaN(valB);
+      if (isNumeric) {
+        return (isDesc ? valA - valB : valB - valA);
+      } else {
+        return isDesc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+      }
+    });
+
+    tbody.innerHTML = '';
+    rows.forEach(row => tbody.appendChild(row));
+  }
+
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+      const id = tab.getAttribute('data-tab');
+      document.getElementById(id).classList.add('active');
+
+      const showFilters = id === 'dashboardTab';
+      document.getElementById('filtersSection').style.display = showFilters ? 'flex' : 'none';
+      document.getElementById('summaryBar').style.display = showFilters ? 'flex' : 'none';
+      document.getElementById('summarySection').style.display = showFilters ? 'flex' : 'none';
+    });
+  });
+
+  window.onload = loadAndRender;
+</script>
+
 </body>
 </html>
