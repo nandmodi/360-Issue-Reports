@@ -118,6 +118,10 @@
     }
     .report-container th.sortable.asc::after { border-top:none; border-bottom:5px solid var(--primary-color); opacity:1; }
     .report-container th.sortable.desc::after { border-bottom:none; border-top:5px solid var(--primary-color); opacity:1; }
+    .current-month { background-color: #e7f3ff !important; font-weight: bold; }
+    .percentage-high { color: #dc3545; font-weight: bold; }
+    .percentage-medium { color: #ffc107; font-weight: bold; }
+    .percentage-low { color: #28a745; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -165,6 +169,15 @@
       </div>
     </div>
 
+    <!-- Updated Client Report Table with Sorting -->
+    <div class="card report-container">
+      <h3>Client Wise Failed Data (% of Total Monthly Failures)</h3>
+      <div id="client-report-table-container" class="scrollable-table"></div>
+      <div id="no-client-report-data" class="no-results-message">
+        No client failure data found to display.
+      </div>
+    </div>
+
     <div class="card viewer-container">
       <div class="viewer-details" id="viewer-details"></div>
       <div class="iframe-container">
@@ -204,6 +217,8 @@
       noMonthlyReportData: document.getElementById('no-monthly-report-data'),
       reasonReportTableContainer: document.getElementById('reason-report-table-container'),
       noReasonReportData: document.getElementById('no-reason-report-data'),
+      clientReportTableContainer: document.getElementById('client-report-table-container'),
+      noClientReportData: document.getElementById('no-client-report-data'),
     };
 
     // ==== STATE ====
@@ -213,9 +228,12 @@
 
     let monthlyReportData = { data: {}, months: [] };
     let reasonReportData  = { data: {}, months: [] };
+    let clientReportData = { data: [], months: [] };
 
     let currentSortColumn = null;
     let sortDirection = 'asc';
+    let clientSortColumn = null;
+    let clientSortDirection = 'asc';
 
     const monthOrder = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
@@ -230,19 +248,52 @@
       setTimeout(() => { elements.errorMessage.style.display = 'none'; }, 3000);
     };
 
+    // Enhanced function to get recent months with current month priority
     const getRecentMonths = (availableMonths) => {
       const now = new Date();
-      const currentMonthIndex = now.getMonth();
-      const recent = [];
-      for (let i = 0; i < 4; i++) {
-        const idx = (currentMonthIndex - i + 12) % 12;
-        recent.push(monthOrder[idx]);
+      const currentMonthName = monthOrder[now.getMonth()];
+      const currentYear = now.getFullYear();
+      
+      // Create month-year strings for proper sorting across years
+      const monthYearMap = {};
+      availableMonths.forEach(month => {
+        // Try to determine the year - this is a simplified approach
+        // In a real scenario, you might want to store year information in your data
+        let year = currentYear;
+        const monthIndex = monthOrder.indexOf(month);
+        if (monthIndex > now.getMonth()) {
+          year = currentYear - 1; // Assume it's from previous year if month is after current month
+        }
+        monthYearMap[month] = year;
+      });
+
+      // Sort months by recency (most recent first)
+      const sortedMonths = [...availableMonths].sort((a, b) => {
+        const yearA = monthYearMap[a];
+        const yearB = monthYearMap[b];
+        const monthIndexA = monthOrder.indexOf(a);
+        const monthIndexB = monthOrder.indexOf(b);
+        
+        // Compare by year first, then by month
+        if (yearA !== yearB) return yearB - yearA;
+        return monthIndexB - monthIndexA;
+      });
+
+      // Ensure current month is included if available
+      let recentMonths = [];
+      if (availableMonths.includes(currentMonthName)) {
+        recentMonths = [currentMonthName];
       }
-      let out = recent.filter(m => availableMonths.includes(m));
-      if (out.length === 0) {
-        out = [...availableMonths].sort((a,b) => monthOrder.indexOf(b) - monthOrder.indexOf(a)).slice(0,4);
+
+      // Add up to 3 more recent months (excluding current month if already added)
+      for (let month of sortedMonths) {
+        if (recentMonths.length >= 4) break;
+        if (!recentMonths.includes(month)) {
+          recentMonths.push(month);
+        }
       }
-      return out;
+
+      return recentMonths;
     };
 
     const getFilters = () => ({
@@ -362,6 +413,92 @@
       return { data: reasonData, months };
     };
 
+    // Updated function to calculate client report data with correct percentage formula
+    const calculateClientReportData = (failureRows) => {
+      const recentMonths = getRecentMonths([...new Set(failureRows.map(row => row['Month']).filter(Boolean))]);
+      
+      // Calculate total failures per month
+      const totalFailuresPerMonth = {};
+      
+      failureRows.forEach(row => {
+        const month = row['Month'];
+        if (!month || !recentMonths.includes(month)) return;
+        
+        if (!totalFailuresPerMonth[month]) {
+          totalFailuresPerMonth[month] = 0;
+        }
+        
+        totalFailuresPerMonth[month]++;
+      });
+      
+      // Calculate failures per client per month
+      const failuresPerClient = {};
+      
+      failureRows.forEach(row => {
+        const enterprise = row['Enterprise'];
+        const month = row['Month'];
+        
+        if (!enterprise || !month || !recentMonths.includes(month)) return;
+        
+        if (!failuresPerClient[enterprise]) {
+          failuresPerClient[enterprise] = {};
+        }
+        
+        if (!failuresPerClient[enterprise][month]) {
+          failuresPerClient[enterprise][month] = 0;
+        }
+        
+        failuresPerClient[enterprise][month]++;
+      });
+      
+      // Calculate percentages and prepare data for display
+      const clientArray = [];
+      
+      Object.keys(failuresPerClient).forEach(enterprise => {
+        const clientData = {
+          enterprise,
+          totalPercentage: 0,
+          months: {},
+          totalFailures: 0
+        };
+        
+        let totalClientFailures = 0;
+        let totalAllFailures = 0;
+        
+        recentMonths.forEach(month => {
+          const clientFailures = failuresPerClient[enterprise][month] || 0;
+          const totalMonthFailures = totalFailuresPerMonth[month] || 0;
+          
+          // Calculate percentage for this month: (client failures / total failures for month) * 100
+          const percentage = totalMonthFailures > 0 ? (clientFailures / totalMonthFailures) * 100 : 0;
+          clientData.months[month] = {
+            percentage: percentage,
+            failures: clientFailures,
+            totalMonthFailures: totalMonthFailures
+          };
+          
+          totalClientFailures += clientFailures;
+          totalAllFailures += totalMonthFailures;
+        });
+        
+        // Calculate overall percentage: (total client failures / total all failures) * 100
+        clientData.totalPercentage = totalAllFailures > 0 ? (totalClientFailures / totalAllFailures) * 100 : 0;
+        clientData.totalFailures = totalClientFailures;
+        
+        clientArray.push(clientData);
+      });
+      
+      // Sort by overall percentage (descending) by default
+      clientArray.sort((a, b) => b.totalPercentage - a.totalPercentage);
+      
+      // Return top 10 clients
+      return {
+        data: clientArray.slice(0, 10),
+        months: recentMonths,
+        totalFailuresPerMonth: totalFailuresPerMonth
+      };
+    };
+
     // ==== APPLY FILTERS ====
     const applyFilters = () => {
       const { month, reason } = getFilters();
@@ -395,10 +532,14 @@
       });
       reasonReportData = calculateReasonReportData(failuresForReasonReport);
 
+      // Client report: computed from failures only with correct percentage formula
+      clientReportData = calculateClientReportData(failuresForReasonReport);
+
       currentIndex = 0;
       renderSpin();
       renderMonthlyReport();
       renderReasonReport();
+      renderClientReport();
     };
 
     // ==== FILTER UI POPULATION ====
@@ -467,23 +608,33 @@
       elements.noMonthlyReportData.style.display = 'none';
 
       const fmtPct = (v) => (Number.isFinite(v) ? v.toFixed(2) + '%' : '-');
+      const now = new Date();
+      const currentMonthName = monthOrder[now.getMonth()];
 
       let html = '<table>';
       html += '<thead><tr><th></th>';
-      monthsToDisplay.forEach(m => { html += `<th>${escapeHtmlAttr(m)}</th>`; });
+      monthsToDisplay.forEach(m => { 
+        const isCurrentMonth = m === currentMonthName;
+        const highlightClass = isCurrentMonth ? 'class="current-month"' : '';
+        html += `<th ${highlightClass}>${escapeHtmlAttr(m)}${isCurrentMonth ? ' (Current)' : ''}</th>`;
+      });
       html += '</tr></thead><tbody>';
 
       html += '<tr><td><strong>Image Validation Error %</strong></td>';
       monthsToDisplay.forEach(m => {
         const v = monthlyReportData.data[m]?.imagePercentage ?? 0;
-        html += `<td>${escapeHtmlAttr(fmtPct(v))}</td>`;
+        const isCurrentMonth = m === currentMonthName;
+        const highlightClass = isCurrentMonth ? 'class="current-month"' : '';
+        html += `<td ${highlightClass}>${escapeHtmlAttr(fmtPct(v))}</td>`;
       });
       html += '</tr>';
 
       html += '<tr><td><strong>Video Validation Error %</strong></td>';
       monthsToDisplay.forEach(m => {
         const v = monthlyReportData.data[m]?.videoPercentage ?? 0;
-        html += `<td>${escapeHtmlAttr(fmtPct(v))}</td>`;
+        const isCurrentMonth = m === currentMonthName;
+        const highlightClass = isCurrentMonth ? 'class="current-month"' : '';
+        html += `<td ${highlightClass}>${escapeHtmlAttr(fmtPct(v))}</td>`;
       });
       html += '</tr>';
 
@@ -522,11 +673,16 @@
         });
       }
 
+      const now = new Date();
+      const currentMonthName = monthOrder[now.getMonth()];
+
       let html = '<table>';
       html += '<thead><tr><th>Reason</th>';
       monthsToDisplay.forEach(m => {
+        const isCurrentMonth = m === currentMonthName;
+        const highlightClass = isCurrentMonth ? 'class="current-month"' : '';
         const sortClass = currentSortColumn === m ? (sortDirection === 'asc' ? 'asc' : 'desc') : '';
-        html += `<th class="sortable ${sortClass}" data-month="${escapeHtmlAttr(m)}">${escapeHtmlAttr(m)}</th>`;
+        html += `<th class="sortable ${sortClass}" data-month="${escapeHtmlAttr(m)}" ${highlightClass}>${escapeHtmlAttr(m)}${isCurrentMonth ? ' (Current)' : ''}</th>`;
       });
       if (!selectedMonth) html += '<th>Total</th>';
       html += '</tr></thead><tbody>';
@@ -537,7 +693,9 @@
         monthsToDisplay.forEach(m => {
           const c = reasonReportData.data[r]?.[m] || 0;
           rowTotal += c;
-          html += `<td>${escapeHtmlAttr(c)}</td>`;
+          const isCurrentMonth = m === currentMonthName;
+          const highlightClass = isCurrentMonth ? 'class="current-month"' : '';
+          html += `<td ${highlightClass}>${escapeHtmlAttr(c)}</td>`;
         });
         if (!selectedMonth) html += `<td><strong>${escapeHtmlAttr(rowTotal)}</strong></td>`;
         html += '</tr>';
@@ -557,6 +715,143 @@
             sortDirection = 'asc';
           }
           renderReasonReport();
+        });
+      });
+    };
+
+    // ==== RENDER: CLIENT REPORT ====
+    const renderClientReport = () => {
+      if (clientReportData.data.length === 0) {
+        elements.clientReportTableContainer.style.display = 'none';
+        elements.noClientReportData.style.display = 'block';
+        return;
+      }
+
+      elements.clientReportTableContainer.style.display = 'block';
+      elements.noClientReportData.style.display = 'none';
+
+      const now = new Date();
+      const currentMonthName = monthOrder[now.getMonth()];
+
+      // Sort client data based on current sort column and direction
+      let sortedClientData = [...clientReportData.data];
+      
+      if (clientSortColumn) {
+        sortedClientData.sort((a, b) => {
+          let aValue, bValue;
+          
+          if (clientSortColumn === 'client') {
+            // Sort by client name
+            aValue = a.enterprise.toLowerCase();
+            bValue = b.enterprise.toLowerCase();
+          } else if (clientSortColumn === 'overall') {
+            // Sort by overall percentage
+            aValue = a.totalPercentage;
+            bValue = b.totalPercentage;
+          } else if (clientSortColumn === 'totalFailures') {
+            // Sort by total failures
+            aValue = a.totalFailures;
+            bValue = b.totalFailures;
+          } else {
+            // Sort by specific month percentage
+            aValue = a.months[clientSortColumn] ? a.months[clientSortColumn].percentage : 0;
+            bValue = b.months[clientSortColumn] ? b.months[clientSortColumn].percentage : 0;
+          }
+          
+          if (typeof aValue === 'string') {
+            // String comparison for client names
+            return clientSortDirection === 'asc' 
+              ? aValue.localeCompare(bValue) 
+              : bValue.localeCompare(aValue);
+          } else {
+            // Numeric comparison for percentages and counts
+            return clientSortDirection === 'asc' 
+              ? aValue - bValue 
+              : bValue - aValue;
+          }
+        });
+      }
+
+      let html = '<table>';
+      html += '<thead><tr>';
+      
+      // Rank column
+      html += '<th>Rank</th>';
+      
+      // Client column with sorting
+      const clientSortClass = clientSortColumn === 'client' ? (clientSortDirection === 'asc' ? 'asc' : 'desc') : '';
+      html += `<th class="sortable ${clientSortClass}" data-column="client">Client</th>`;
+      
+      // Month columns with sorting
+      clientReportData.months.forEach(m => {
+        const isCurrentMonth = m === currentMonthName;
+        const highlightClass = isCurrentMonth ? 'class="current-month"' : '';
+        const sortClass = clientSortColumn === m ? (clientSortDirection === 'asc' ? 'asc' : 'desc') : '';
+        html += `<th class="sortable ${sortClass}" data-column="${escapeHtmlAttr(m)}" ${highlightClass}>${escapeHtmlAttr(m)}${isCurrentMonth ? ' (Current)' : ''}</th>`;
+      });
+      
+      // Overall % column with sorting
+      const overallSortClass = clientSortColumn === 'overall' ? (clientSortDirection === 'asc' ? 'asc' : 'desc') : '';
+      html += `<th class="sortable ${overallSortClass}" data-column="overall">Overall %</th>`;
+      
+      // Total Failures column with sorting
+      const totalFailuresSortClass = clientSortColumn === 'totalFailures' ? (clientSortDirection === 'asc' ? 'asc' : 'desc') : '';
+      html += `<th class="sortable ${totalFailuresSortClass}" data-column="totalFailures">Total Failures</th>`;
+      
+      html += '</tr></thead><tbody>';
+
+      sortedClientData.forEach((client, index) => {
+        // Determine color class based on overall percentage
+        let overallColorClass = '';
+        if (client.totalPercentage > 20) overallColorClass = 'percentage-high';
+        else if (client.totalPercentage > 10) overallColorClass = 'percentage-medium';
+        else overallColorClass = 'percentage-low';
+
+        html += `<tr><td>${index + 1}</td><td>${escapeHtmlAttr(client.enterprise)}</td>`;
+        clientReportData.months.forEach(m => {
+          const monthData = client.months[m];
+          const percentage = monthData ? monthData.percentage : 0;
+          
+          // Determine color class based on percentage
+          let colorClass = '';
+          if (percentage > 20) colorClass = 'percentage-high';
+          else if (percentage > 10) colorClass = 'percentage-medium';
+          else colorClass = 'percentage-low';
+          
+          const isCurrentMonth = m === currentMonthName;
+          const highlightClass = isCurrentMonth ? 'class="current-month"' : '';
+          html += `<td ${highlightClass}><span class="${colorClass}">${percentage.toFixed(2)}%</span></td>`;
+        });
+        html += `<td><strong class="${overallColorClass}">${client.totalPercentage.toFixed(2)}%</strong></td>`;
+        html += `<td>${client.totalFailures}</td></tr>`;
+      });
+
+      // Add a footer row showing total failures per month
+      html += '<tr style="background-color: #e9ecef; font-weight: bold;"><td colspan="2">Total Failures (Month)</td>';
+      clientReportData.months.forEach(m => {
+        const total = clientReportData.totalFailuresPerMonth[m] || 0;
+        const isCurrentMonth = m === currentMonthName;
+        const highlightClass = isCurrentMonth ? 'class="current-month"' : '';
+        html += `<td ${highlightClass}>${total}</td>`;
+      });
+      html += '<td colspan="2"></td></tr>';
+
+      html += '</tbody></table>';
+      elements.clientReportTableContainer.innerHTML = html;
+
+      // Add sorting event listeners for client report
+      elements.clientReportTableContainer.querySelectorAll('th.sortable').forEach(th => {
+        th.addEventListener('click', (ev) => {
+          const column = ev.currentTarget.dataset.column;
+          
+          if (clientSortColumn === column) {
+            clientSortDirection = (clientSortDirection === 'asc') ? 'desc' : 'asc';
+          } else {
+            clientSortColumn = column;
+            clientSortDirection = 'asc';
+          }
+          
+          renderClientReport();
         });
       });
     };
@@ -612,6 +907,8 @@
     const onAnyFilterChange = () => {
       currentSortColumn = null;
       sortDirection = 'asc';
+      clientSortColumn = null;
+      clientSortDirection = 'asc';
       applyFilters();
     };
 
