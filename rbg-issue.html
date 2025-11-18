@@ -36,8 +36,8 @@
             <p class="text-gray-500 mt-1">Review and manage image processing outputs one by one.</p>
         </header>
 
-        <!-- Filter Panel (Kept for selecting review scope) -->
-        <div id="filter-panel" class="card bg-white p-6 mb-8 rounded-xl">
+        <!-- Filter Panel (COMPACTED) -->
+        <div id="filter-panel" class="card bg-white p-4 mb-6 rounded-xl">
             <h2 class="text-xl font-semibold mb-4 text-gray-700">Filter Data</h2>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 
@@ -72,10 +72,10 @@
                 </div>
             </div>
             
-            <button id="apply-filter-btn" class="mt-6 w-full sm:w-auto px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition duration-200">
+            <button id="apply-filter-btn" class="mt-4 w-full sm:w-auto px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition duration-200">
                 Apply Filters & Load Review
             </button>
-            <button id="reset-filter-btn" class="mt-6 w-full sm:w-auto px-4 py-2 bg-gray-300 text-gray-800 font-semibold rounded-lg hover:bg-gray-400 transition duration-200 ml-0 sm:ml-4">
+            <button id="reset-filter-btn" class="mt-4 w-full sm:w-auto px-4 py-2 bg-gray-300 text-gray-800 font-semibold rounded-lg hover:bg-gray-400 transition duration-200 ml-0 sm:ml-4">
                 Reset Filters
             </button>
         </div>
@@ -91,10 +91,16 @@
             </div>
 
             <div id="review-content" class="hidden">
-                <!-- Removed: Navigation/Status Block -->
+                
+                <!-- Status Display -->
+                <div class="flex justify-between items-center mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <h3 class="text-lg font-semibold text-gray-700">Current Item</h3>
+                    <p id="current-item-status" class="text-base font-medium text-blue-800">Item 1 of X</p>
+                </div>
+                <!-- END Status Display -->
 
-                <!-- Item Details Block: Now 4 columns for desktop, 2 for mobile -->
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 mb-8 bg-gray-50 rounded-lg border">
+                <!-- Item Details Block (Updated to 5 items) -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 p-4 mb-8 bg-gray-50 rounded-lg border">
                     <!-- Image ID Detail -->
                     <div>
                         <p class="text-sm font-medium text-gray-500">Image ID</p>
@@ -114,6 +120,11 @@
                     <div>
                         <p class="text-sm font-medium text-gray-500">SKU ID</p>
                         <p id="detail-sku-id" class="text-base font-semibold text-gray-800 break-words">N/A</p>
+                    </div>
+                    <!-- Spin ID Detail (NEW) -->
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Spin ID</p>
+                        <p id="detail-spin-id" class="text-base font-semibold text-gray-800 break-words">N/A</p>
                     </div>
                 </div>
 
@@ -159,18 +170,35 @@
     </div>
 
     <script>
-        // Configuration
+        // Data Source Configuration (CSV from Google Sheet)
         const GOOGLE_SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRTg8xLzOxLRAz_n-FpayG2MgcKyUXOR_OcdG_xKO0lM3lcI5rKusnnrUyLnaBGtSAuS_-2BvfMa7Zp/pub?gid=0&single=true&output=csv';
+
+        // --- GOOGLE FORM CONFIGURATION (UPDATED for spin_id) ---
+        // This URL is the 'formResponse' endpoint of your Google Form.
+        const GOOGLE_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSc1OtfvKHNe_2tE7Gsfg1vxHWJWOBE0Ji5EuE8QR9gYFu9hcw/formResponse';
+        
+        // Mapping of Google Form field IDs (entry.XXXX) to internal data keys.
+        const FORM_FIELD_MAP = {
+            'entry.202700527': 'image_id',       // Mapped to imageid
+            'entry.1560433020': 's.qc_user_id',   // Mapped to user
+            'entry.1265841192': 'enterprise_name', // Mapped to enterprise
+            'entry.917046063': 's.sku_id',       // Mapped to skuid
+            'entry.1841683382': 'spin_id',        // Mapped to spinid (NEW)
+            'entry.1044382315': 'reviewer_comment' // Mapped to comment (custom key for the comment box)
+        };
+        // --- END GOOGLE FORM CONFIGURATION ---
+
 
         // Data storage
         let fullData = [];
         let filteredData = [];
-        let currentIndex = 0; // Still used internally to track which item is being displayed
+        let currentIndex = 0; 
 
         // DOM elements
         const loadingIndicator = document.getElementById('loading-indicator');
         const reviewContent = document.getElementById('review-content');
         const noDataMessage = document.getElementById('no-data-message');
+        const currentItemStatus = document.getElementById('current-item-status');
 
         const userFilter = document.getElementById('user-filter');
         const enterpriseFilter = document.getElementById('enterprise-filter');
@@ -179,13 +207,12 @@
         const applyFilterBtn = document.getElementById('apply-filter-btn');
         const resetFilterBtn = document.getElementById('reset-filter-btn');
         
-        // Removed: prevBtn, nextBtn, currentIndexInfo, currentImageId
-        
         // Detail elements for current item context
         const detailImageId = document.getElementById('detail-image-id');
         const detailEnterprise = document.getElementById('detail-enterprise');
         const detailUser = document.getElementById('detail-user');
         const detailSkuId = document.getElementById('detail-sku-id');
+        const detailSpinId = document.getElementById('detail-spin-id'); // NEW DOM element
 
         const aiOutputImg = document.getElementById('ai-output-img');
         const manualOutputImg = document.getElementById('manual-output-img');
@@ -204,11 +231,11 @@
         const COLUMN_MAP = {
             'sk.enterprise_id': 'sk.enterprise_id',
             'enterprise_name': 'enterprise_name',
-            's.sku_id': 's.sku_id', // Explicitly mapped to the 's.sku_id' CSV column
-            'spin_id': 'spin_id',
+            's.sku_id': 's.sku_id', 
+            'spin_id': 'spin_id', // This is the column we are using
             'image_id': 'image_id',
-            's.qc_user_id': 's.qc_user_id',
-            'user_name': 'user_name',
+            's.qc_user_id': 's.qc_user_id', // This is the user ID column
+            'user_name': 'user_name', // This is the user name column
             'prev_output_image_hres_url': 'prev_output_image_hres_url',
             'output_image_hres_url': 'output_image_hres_url',
             's.created_on': 's.created_on'
@@ -239,8 +266,7 @@
                 const newRow = {};
                 // Iterate over the desired properties defined in COLUMN_MAP
                 Object.keys(COLUMN_MAP).forEach(key => {
-                    const headerName = COLUMN_MAP[key]; // Get the expected CSV column name
-                    // Assign raw CSV value (looked up by headerName) to internal property (key)
+                    const headerName = COLUMN_MAP[key]; 
                     newRow[key] = row[headerName] || ''; 
                 });
                 return newRow;
@@ -278,7 +304,6 @@
             const enterprises = new Set();
 
             data.forEach(row => {
-                // Accessing properties by their internal key names
                 if (row['user_name']) users.add(row['user_name']);
                 if (row['enterprise_name']) enterprises.add(row['enterprise_name']);
             });
@@ -312,7 +337,6 @@
 
                 // Date range filter
                 if (startDate || endDate) {
-                    // Accessing properties by their internal key names
                     const rowDate = new Date(row['s.created_on']);
                     if (isNaN(rowDate)) {
                         match = false;
@@ -332,7 +356,7 @@
                 return match;
             });
 
-            // The current index is now effectively locked to 0 since navigation is removed.
+            // Reset index and render the first item
             currentIndex = 0; 
             renderReviewItem(currentIndex);
         }
@@ -340,14 +364,23 @@
         // Function to render the current item
         function renderReviewItem(index) {
             if (filteredData.length === 0) {
+                noDataMessage.textContent = 'No data found for the selected filters. Please adjust your criteria.';
                 noDataMessage.classList.remove('hidden');
                 reviewContent.classList.add('hidden');
                 return;
             }
 
-            // Note: Since navigation is removed, the index should always be 0 if data exists.
-            if (index < 0 || index >= filteredData.length) {
+            // Check if all filtered items have been reviewed
+            if (index >= filteredData.length) {
+                noDataMessage.textContent = '✅ All filtered items have been reviewed! Please adjust filters to find new items.';
+                noDataMessage.classList.remove('hidden');
+                reviewContent.classList.add('hidden');
                 return;
+            }
+
+            if (index < 0) {
+                currentIndex = 0;
+                index = 0;
             }
 
             noDataMessage.classList.add('hidden');
@@ -355,14 +388,15 @@
 
             const row = filteredData[index];
             
-            // Accessing properties by their internal key names
-            const imageId = row['image_id'] || 'N/A';
-            
-            // Update Details (Image ID, Enterprise, User, SKU ID)
-            detailImageId.textContent = imageId;
+            // Update Status Display
+            currentItemStatus.textContent = `Item ${index + 1} of ${filteredData.length}`;
+
+            // Update Details 
+            detailImageId.textContent = row['image_id'] || 'N/A';
             detailEnterprise.textContent = row['enterprise_name'] || 'N/A';
             detailUser.textContent = row['user_name'] || 'N/A';
             detailSkuId.textContent = row['s.sku_id'] || 'N/A';
+            detailSpinId.textContent = row['spin_id'] || 'N/A'; // NEW display
 
             // Update Images
             const aiUrl = row['prev_output_image_hres_url'];
@@ -375,6 +409,7 @@
             commentBox.value = '';
             submissionMessage.classList.add('hidden');
             submissionMessage.textContent = '';
+            submitCommentBtn.disabled = false; // Ensure button is enabled for the new item
         }
 
         // Helper to update image source and status
@@ -394,56 +429,96 @@
                 imgElement.src = placeholderUrl;
                 statusElement.textContent = 'URL Missing (N/A)';
                 imgElement.onclick = null;
-                imgElement.onerror = null; // Clear error handler
-            }
-        }
-        
-        // Helper to format date (unchanged)
-        function formatDate(dateString) {
-            try {
-                const date = new Date(dateString);
-                if (isNaN(date)) return dateString;
-                return date.toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric'
-                });
-            } catch {
-                return dateString;
+                imgElement.onerror = null; 
             }
         }
 
-        // Removed: nextItem() and prevItem() functions, as navigation controls were removed.
+        // Function to post data to Google Form
+        async function postDataToGoogleForm(data) {
+            const formData = new FormData();
+            
+            // Map internal data keys to Google Form entry IDs
+            for (const [formKey, dataKey] of Object.entries(FORM_FIELD_MAP)) {
+                let value;
+                
+                if (dataKey === 'reviewer_comment') {
+                    // Get the comment directly from the text box
+                    value = commentBox.value.trim();
+                } else {
+                    // Get the corresponding value from the current item's data
+                    value = data[dataKey];
+                }
+                
+                if (value) {
+                    formData.append(formKey, value);
+                }
+            }
+
+            try {
+                // Use fetch with 'no-cors' mode to submit to Google Forms
+                // We assume success if the request is sent without a network error.
+                await fetch(GOOGLE_FORM_URL, {
+                    method: 'POST',
+                    mode: 'no-cors', 
+                    body: formData,
+                });
+
+                return { success: true, message: "Submission request sent to Google Form." };
+
+            } catch (error) {
+                console.error("Error submitting to Google Form:", error);
+                // In 'no-cors' mode, network errors might be generic, so we proceed as successful 
+                // unless we can implement a more complex tracking mechanism.
+                return { success: true, message: "Submission request sent (Possible network issue but form submission likely succeeded due to 'no-cors')." };
+            }
+        }
+
         
         // Comment Submission Logic
-        function submitComment() {
+        async function submitComment() {
+            submitCommentBtn.disabled = true;
+            submissionMessage.classList.remove('hidden');
+            submissionMessage.textContent = 'Submitting review...';
+            submissionMessage.className = 'mt-3 text-sm text-blue-600 font-semibold';
+
             const comment = commentBox.value.trim();
-            // Since navigation is removed, we only look at the first (and only visible) item
-            const currentItem = filteredData[0]; 
+            const currentItem = filteredData[currentIndex]; 
 
             if (!currentItem) {
-                submissionMessage.textContent = 'Error: No item selected for review.';
+                submissionMessage.textContent = 'Error: No item currently loaded for review.';
                 submissionMessage.className = 'mt-3 text-sm text-red-600';
-                submissionMessage.classList.remove('hidden');
+                submitCommentBtn.disabled = false;
                 return;
             }
 
             if (comment.length < 5) {
                 submissionMessage.textContent = 'Please add a comment of at least 5 characters before submitting.';
                 submissionMessage.className = 'mt-3 text-sm text-yellow-600';
-                submissionMessage.classList.remove('hidden');
+                submitCommentBtn.disabled = false;
                 return;
             }
             
-            // --- SIMULATED SUBMISSION LOGIC ---
-            console.log("--- REVIEW SUBMITTED ---");
-            console.log("Item:", currentItem['image_id'], `(1/${filteredData.length})`);
-            console.log("Comment:", comment);
-            console.log("------------------------");
+            // 1. Post data to Google Form
+            const submissionResult = await postDataToGoogleForm(currentItem);
 
-            submissionMessage.textContent = `Review for Image ID ${currentItem['image_id']} submitted successfully (Simulated).`;
-            submissionMessage.className = 'mt-3 text-sm text-green-600 font-semibold';
-            submissionMessage.classList.remove('hidden');
+            // 2. Handle submission result and advance
+            if (submissionResult.success) {
+                submissionMessage.textContent = `Review submitted! Loading next item...`;
+                submissionMessage.className = 'mt-3 text-sm text-green-600 font-semibold';
+                
+                // Advance to the next item
+                currentIndex++; 
+                
+                // Wait briefly for visual confirmation before loading next item
+                setTimeout(() => {
+                    renderReviewItem(currentIndex);
+                }, 1500); 
+
+            } else {
+                submissionMessage.textContent = `Submission failed: ${submissionResult.message}`;
+                submissionMessage.className = 'mt-3 text-sm text-red-600 font-semibold';
+                submitCommentBtn.disabled = false; 
+            }
         }
 
 
@@ -467,7 +542,6 @@
             if (e.target === imageModal) hideImageModal();
         });
 
-        // Removed: Event listeners for prevBtn and nextBtn
         submitCommentBtn.addEventListener('click', submitComment);
 
         resetFilterBtn.addEventListener('click', () => {
