@@ -26,6 +26,10 @@
         .review-image:hover {
             transform: scale(1.01);
         }
+        /* Custom style to control textarea height */
+        .one-line-textarea {
+            min-height: 1.5em; /* Ensure a minimum height equivalent to one line of text */
+        }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -37,7 +41,7 @@
         </header>
 
         <!-- Filter Panel (COMPACTED) -->
-        <div id="filter-panel" class="card bg-white p-4 mb-6 rounded-xl">
+        <div id="filter-panel" class="card bg-white p-4 mb-4 rounded-xl">
             <h2 class="text-xl font-semibold mb-4 text-gray-700">Filter Data</h2>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 
@@ -93,38 +97,38 @@
             <div id="review-content" class="hidden">
                 
                 <!-- Status Display -->
-                <div class="flex justify-between items-center mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div class="flex justify-between items-center mb-4 p-2 bg-blue-50 rounded-lg border border-blue-200">
                     <h3 class="text-lg font-semibold text-gray-700">Current Item</h3>
                     <p id="current-item-status" class="text-base font-medium text-blue-800">Item 1 of X</p>
                 </div>
                 <!-- END Status Display -->
 
-                <!-- Item Details Block (Updated to 5 items) -->
-                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 p-4 mb-8 bg-gray-50 rounded-lg border">
+                <!-- Item Details Block -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 p-2 mb-4 bg-gray-50 rounded-lg border">
                     <!-- Image ID Detail -->
                     <div>
-                        <p class="text-sm font-medium text-gray-500">Image ID</p>
-                        <p id="detail-image-id" class="text-base font-semibold text-gray-800 break-words">N/A</p>
+                        <p class="text-xs font-medium text-gray-500">Image ID</p>
+                        <p id="detail-image-id" class="text-sm font-semibold text-gray-800 break-words">N/A</p>
                     </div>
                     <!-- Enterprise Detail -->
                     <div>
-                        <p class="text-sm font-medium text-gray-500">Enterprise</p>
-                        <p id="detail-enterprise" class="text-base font-semibold text-gray-800 break-words">N/A</p>
+                        <p class="text-xs font-medium text-gray-500">Enterprise</p>
+                        <p id="detail-enterprise" class="text-sm font-semibold text-gray-800 break-words">N/A</p>
                     </div>
                     <!-- User Detail -->
                     <div>
-                        <p class="text-sm font-medium text-gray-500">User</p>
-                        <p id="detail-user" class="text-base font-semibold text-gray-800 break-words">N/A</p>
+                        <p class="text-xs font-medium text-gray-500">User</p>
+                        <p id="detail-user" class="text-sm font-semibold text-gray-800 break-words">N/A</p>
                     </div>
                     <!-- SKU ID Detail -->
                     <div>
-                        <p class="text-sm font-medium text-gray-500">SKU ID</p>
-                        <p id="detail-sku-id" class="text-base font-semibold text-gray-800 break-words">N/A</p>
+                        <p class="text-xs font-medium text-gray-500">SKU ID</p>
+                        <p id="detail-sku-id" class="text-sm font-semibold text-gray-800 break-words">N/A</p>
                     </div>
-                    <!-- Spin ID Detail (NEW) -->
+                    <!-- Spin ID Detail -->
                     <div>
-                        <p class="text-sm font-medium text-gray-500">Spin ID</p>
-                        <p id="detail-spin-id" class="text-base font-semibold text-gray-800 break-words">N/A</p>
+                        <p class="text-xs font-medium text-gray-500">Spin ID</p>
+                        <p id="detail-spin-id" class="text-sm font-semibold text-gray-800 break-words">N/A</p>
                     </div>
                 </div>
 
@@ -147,7 +151,8 @@
                 <!-- Comment Form -->
                 <div class="border-t pt-6">
                     <h3 class="text-lg font-semibold text-gray-700 mb-3">Reviewer Comments</h3>
-                    <textarea id="comment-box" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500 transition duration-150 resize-y" rows="4" placeholder="Add your detailed comments here..."></textarea>
+                    <!-- REDUCED rows from 4 to 1 for a single-line appearance -->
+                    <textarea id="comment-box" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500 transition duration-150 resize-y one-line-textarea" rows="1" placeholder="Add your detailed comments here..."></textarea>
                     <button id="submit-comment-btn" class="mt-4 px-6 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition duration-200 disabled:opacity-50">
                         Submit Review & Comment
                     </button>
