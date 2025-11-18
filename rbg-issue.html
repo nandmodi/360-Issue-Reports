@@ -91,19 +91,29 @@
             </div>
 
             <div id="review-content" class="hidden">
-                <!-- Navigation/Status -->
-                <div class="flex flex-col sm:flex-row justify-between items-center mb-6 border-b pb-4">
-                    <h2 class="text-xl font-bold text-gray-800">Current Item: <span id="current-image-id" class="text-blue-600"></span></h2>
-                    <div class="flex items-center space-x-4 mt-3 sm:mt-0">
-                        <span id="current-index-info" class="text-sm font-medium text-gray-600"></span>
-                        <button id="prev-btn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 transition duration-200 font-semibold" disabled>
-                            <span class="hidden sm:inline">Previous</span>
-                            <span class="inline sm:hidden">&larr;</span>
-                        </button>
-                        <button id="next-btn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition duration-200 font-semibold" disabled>
-                            <span class="hidden sm:inline">Next</span>
-                            <span class="inline sm:hidden">&rarr;</span>
-                        </button>
+                <!-- Removed: Navigation/Status Block -->
+
+                <!-- Item Details Block: Now 4 columns for desktop, 2 for mobile -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 mb-8 bg-gray-50 rounded-lg border">
+                    <!-- Image ID Detail -->
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Image ID</p>
+                        <p id="detail-image-id" class="text-lg font-semibold text-gray-800 break-words">N/A</p>
+                    </div>
+                    <!-- Enterprise Detail -->
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Enterprise</p>
+                        <p id="detail-enterprise" class="text-lg font-semibold text-gray-800 break-words">N/A</p>
+                    </div>
+                    <!-- User Detail -->
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">User</p>
+                        <p id="detail-user" class="text-lg font-semibold text-gray-800 break-words">N/A</p>
+                    </div>
+                    <!-- SKU ID Detail -->
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">SKU ID</p>
+                        <p id="detail-sku-id" class="text-lg font-semibold text-gray-800 break-words">N/A</p>
                     </div>
                 </div>
 
@@ -151,12 +161,11 @@
     <script>
         // Configuration
         const GOOGLE_SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRTg8xLzOxLRAz_n-FpayG2MgcKyUXOR_OcdG_xKO0lM3lcI5rKusnnrUyLnaBGtSAuS_-2BvfMa7Zp/pub?gid=0&single=true&output=csv';
-        // const BASE_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSc1OtfvKHNe_2tE7Gsfg1vxHWJWOBE0Ji5EuE8QR9gYFu9hcw/viewform'; // No longer needed for direct link
 
         // Data storage
         let fullData = [];
         let filteredData = [];
-        let currentIndex = 0;
+        let currentIndex = 0; // Still used internally to track which item is being displayed
 
         // DOM elements
         const loadingIndicator = document.getElementById('loading-indicator');
@@ -170,12 +179,13 @@
         const applyFilterBtn = document.getElementById('apply-filter-btn');
         const resetFilterBtn = document.getElementById('reset-filter-btn');
         
-        const prevBtn = document.getElementById('prev-btn');
-        const nextBtn = document.getElementById('next-btn');
-        const currentIndexInfo = document.getElementById('current-index-info');
+        // Removed: prevBtn, nextBtn, currentIndexInfo, currentImageId
         
-        const currentImageId = document.getElementById('current-image-id');
-        // Removed: detailEnterprise, detailSkuId, detailSpinId, detailDateUser
+        // Detail elements for current item context
+        const detailImageId = document.getElementById('detail-image-id');
+        const detailEnterprise = document.getElementById('detail-enterprise');
+        const detailUser = document.getElementById('detail-user');
+        const detailSkuId = document.getElementById('detail-sku-id');
 
         const aiOutputImg = document.getElementById('ai-output-img');
         const manualOutputImg = document.getElementById('manual-output-img');
@@ -190,11 +200,11 @@
         const modalImage = document.getElementById('modal-image');
         const closeModalBtn = document.getElementById('close-modal-btn');
 
-        // Column mapping for easier access (keys correspond to CSV header names)
+        // Column mapping for easier access (Key is internal property name, Value is expected CSV header name)
         const COLUMN_MAP = {
             'sk.enterprise_id': 'sk.enterprise_id',
             'enterprise_name': 'enterprise_name',
-            's.sku_id': 's.sku_sku_id', // Adjusting for potential CSV header name quirks
+            's.sku_id': 's.sku_id', // Explicitly mapped to the 's.sku_id' CSV column
             'spin_id': 'spin_id',
             'image_id': 'image_id',
             's.qc_user_id': 's.qc_user_id',
@@ -204,7 +214,7 @@
             's.created_on': 's.created_on'
         };
 
-        // Utility function to parse CSV text (unchanged from original)
+        // Utility function to parse CSV text
         function parseCSV(text) {
             const lines = text.trim().split('\n');
             if (lines.length === 0) return [];
@@ -224,21 +234,19 @@
                 data.push(row);
             }
             
-            // Re-map and filter for consistency and validity
+            // Re-map raw CSV rows to normalized objects (finalData)
             const finalData = data.map(row => {
                 const newRow = {};
-                // Use Object.keys(COLUMN_MAP) to match the keys in the map
+                // Iterate over the desired properties defined in COLUMN_MAP
                 Object.keys(COLUMN_MAP).forEach(key => {
-                    // This logic assumes the CSV header matches the key or is close enough to be found.
-                    // For robustness, we check several possible header names for Sku ID if needed.
-                    if (key === 's.sku_id') {
-                        newRow[key] = row['s.sku_id'] || row['s.sku_id - Sku Id'] || row['s.sku_sku_id'] || '';
-                    } else {
-                        newRow[key] = row[key] || '';
-                    }
+                    const headerName = COLUMN_MAP[key]; // Get the expected CSV column name
+                    // Assign raw CSV value (looked up by headerName) to internal property (key)
+                    newRow[key] = row[headerName] || ''; 
                 });
                 return newRow;
-            }).filter(row => row[COLUMN_MAP['image_id']]);
+            })
+            // Filter out rows missing the core image_id, using the internal key
+            .filter(row => row['image_id']); 
 
             return finalData;
         }
@@ -264,14 +272,15 @@
             }
         }
 
-        // Function to populate filter dropdowns (unchanged)
+        // Function to populate filter dropdowns
         function populateFilters(data) {
             const users = new Set();
             const enterprises = new Set();
 
             data.forEach(row => {
-                if (row[COLUMN_MAP['user_name']]) users.add(row[COLUMN_MAP['user_name']]);
-                if (row[COLUMN_MAP['enterprise_name']]) enterprises.add(row[COLUMN_MAP['enterprise_name']]);
+                // Accessing properties by their internal key names
+                if (row['user_name']) users.add(row['user_name']);
+                if (row['enterprise_name']) enterprises.add(row['enterprise_name']);
             });
 
             userFilter.innerHTML = '<option value="">All Users</option>' + 
@@ -292,18 +301,19 @@
                 let match = true;
 
                 // User filter
-                if (selectedUser && row[COLUMN_MAP['user_name']] !== selectedUser) {
+                if (selectedUser && row['user_name'] !== selectedUser) {
                     match = false;
                 }
 
                 // Enterprise filter
-                if (selectedEnterprise && row[COLUMN_MAP['enterprise_name']] !== selectedEnterprise) {
+                if (selectedEnterprise && row['enterprise_name'] !== selectedEnterprise) {
                     match = false;
                 }
 
                 // Date range filter
                 if (startDate || endDate) {
-                    const rowDate = new Date(row[COLUMN_MAP['s.created_on']]);
+                    // Accessing properties by their internal key names
+                    const rowDate = new Date(row['s.created_on']);
                     if (isNaN(rowDate)) {
                         match = false;
                     } else {
@@ -322,7 +332,8 @@
                 return match;
             });
 
-            currentIndex = 0; // Reset to the first item
+            // The current index is now effectively locked to 0 since navigation is removed.
+            currentIndex = 0; 
             renderReviewItem(currentIndex);
         }
 
@@ -334,8 +345,8 @@
                 return;
             }
 
+            // Note: Since navigation is removed, the index should always be 0 if data exists.
             if (index < 0 || index >= filteredData.length) {
-                // Should not happen if navigation is disabled correctly
                 return;
             }
 
@@ -343,21 +354,19 @@
             reviewContent.classList.remove('hidden');
 
             const row = filteredData[index];
-            const total = filteredData.length;
             
-            // Update Navigation Status
-            currentIndex = index;
-            currentIndexInfo.textContent = `Item ${index + 1} of ${total}`;
-            prevBtn.disabled = (index === 0);
-            nextBtn.disabled = (index === total - 1);
+            // Accessing properties by their internal key names
+            const imageId = row['image_id'] || 'N/A';
             
-            // Update Details
-            currentImageId.textContent = row[COLUMN_MAP['image_id']] || 'N/A';
-            // Details section removed as requested.
+            // Update Details (Image ID, Enterprise, User, SKU ID)
+            detailImageId.textContent = imageId;
+            detailEnterprise.textContent = row['enterprise_name'] || 'N/A';
+            detailUser.textContent = row['user_name'] || 'N/A';
+            detailSkuId.textContent = row['s.sku_id'] || 'N/A';
 
             // Update Images
-            const aiUrl = row[COLUMN_MAP['prev_output_image_hres_url']];
-            const manualUrl = row[COLUMN_MAP['output_image_hres_url']];
+            const aiUrl = row['prev_output_image_hres_url'];
+            const manualUrl = row['output_image_hres_url'];
             
             updateImageDisplay(aiOutputImg, aiOutputStatus, aiUrl, 'AI Output');
             updateImageDisplay(manualOutputImg, manualOutputStatus, manualUrl, 'Manual Output');
@@ -404,23 +413,13 @@
             }
         }
 
-        // Navigation functions
-        function nextItem() {
-            if (currentIndex < filteredData.length - 1) {
-                renderReviewItem(currentIndex + 1);
-            }
-        }
-
-        function prevItem() {
-            if (currentIndex > 0) {
-                renderReviewItem(currentIndex - 1);
-            }
-        }
+        // Removed: nextItem() and prevItem() functions, as navigation controls were removed.
         
         // Comment Submission Logic
         function submitComment() {
             const comment = commentBox.value.trim();
-            const currentItem = filteredData[currentIndex];
+            // Since navigation is removed, we only look at the first (and only visible) item
+            const currentItem = filteredData[0]; 
 
             if (!currentItem) {
                 submissionMessage.textContent = 'Error: No item selected for review.';
@@ -438,18 +437,13 @@
             
             // --- SIMULATED SUBMISSION LOGIC ---
             console.log("--- REVIEW SUBMITTED ---");
-            console.log("Item:", currentItem[COLUMN_MAP['image_id']], `(${currentIndex + 1}/${filteredData.length})`);
+            console.log("Item:", currentItem['image_id'], `(1/${filteredData.length})`);
             console.log("Comment:", comment);
             console.log("------------------------");
 
-            submissionMessage.textContent = `Review for Image ID ${currentItem[COLUMN_MAP['image_id']]} submitted successfully (Simulated).`;
+            submissionMessage.textContent = `Review for Image ID ${currentItem['image_id']} submitted successfully (Simulated).`;
             submissionMessage.className = 'mt-3 text-sm text-green-600 font-semibold';
             submissionMessage.classList.remove('hidden');
-            
-            // Option to move to the next item automatically after successful submission (uncomment to enable):
-            // setTimeout(() => {
-            //     nextItem();
-            // }, 1500);
         }
 
 
@@ -462,7 +456,6 @@
 
         function hideImageModal() {
             imageModal.classList.add('hidden');
-            imageModal.classList.remove('opacity-100');
             modalImage.src = '';
         }
 
@@ -474,8 +467,7 @@
             if (e.target === imageModal) hideImageModal();
         });
 
-        prevBtn.addEventListener('click', prevItem);
-        nextBtn.addEventListener('click', nextItem);
+        // Removed: Event listeners for prevBtn and nextBtn
         submitCommentBtn.addEventListener('click', submitComment);
 
         resetFilterBtn.addEventListener('click', () => {
